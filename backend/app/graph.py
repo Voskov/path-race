@@ -19,20 +19,22 @@ Node attributes:
               never removes one and never auto-commits.
 """
 
-# Approximate coordinates (WGS84). Best-effort; audit/ranking only.
+# Coordinates (WGS84) for location-plausibility ranking only — never removes an
+# option, so precision is not critical. Station values marked (real) are the
+# Google Maps place coordinates; (est) are estimates pending a real fix.
 _C = {
-    "home":            (32.0910, 34.8760),  # Petah Tikva
-    "office":          (32.0585, 34.7920),  # HaMelacha St, Tel Aviv
-    "pinsker":         (32.0905, 34.8735),
-    "kroll":           (32.0930, 34.8700),
-    "dankner":         (32.0955, 34.8665),
-    "beilinson":       (32.0975, 34.8620),
-    "shaham":          (32.0870, 34.8520),
-    "kiryat_arye":     (32.0985, 34.8650),
-    "yehudit":         (32.0650, 34.7850),
-    "carlebach":       (32.0670, 34.7800),
-    "street_morning":  (32.0620, 34.7880),
-    "street_evening":  (32.0600, 34.7900),
+    "home":            (32.0910, 34.8760),   # (est) Petah Tikva
+    "office":          (32.0585, 34.7920),   # (est) HaMelacha St, Tel Aviv
+    "pinsker":         (32.093731, 34.882202),  # (real)
+    "kroll":           (32.091911, 34.877506),  # (real)
+    "dankner":         (32.090950, 34.872166),  # (real)
+    "beilinson":       (32.091300, 34.862800),  # (est) interpolated Dankner<->Shenkar
+    "shaham":          (32.092670, 34.853252),  # (real, labelled "Shenkar" on maps)
+    "kiryat_arye":     (32.105930, 34.861897),  # (real)
+    "yehudit":         (32.070168, 34.788406),  # (real)
+    "carlebach":       (32.065273, 34.782825),  # (real)
+    "street_morning":  (32.0620, 34.7880),   # (est)
+    "street_evening":  (32.0600, 34.7900),   # (est)
 }
 
 
