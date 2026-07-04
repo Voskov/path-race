@@ -1,0 +1,15 @@
+services:
+  pathrace:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "${PORT:-8000}:8000"
+    environment:
+      - PORT=8000
+      - DB_PATH=/data/pathrace.db
+    volumes:
+      - pathrace-db:/data
+
+volumes:
+  pathrace-db:

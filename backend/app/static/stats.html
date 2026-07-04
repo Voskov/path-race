@@ -1,0 +1,126 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Path Race — stats</title>
+<style>
+:root{--bg:#0b0e14;--panel:#141924;--line:#2a3446;--text:#e6ecf5;--dim:#8494ad;
+  --accent:#3ba0ff;--warn:#ffb020;--danger:#ff5964}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 system-ui,Segoe UI,Roboto,sans-serif}
+.wrap{max-width:1000px;margin:0 auto;padding:16px}
+h1{font-size:20px;margin:6px 0}
+a{color:var(--accent)}
+.toolbar{display:flex;gap:14px;align-items:center;margin:10px 0 18px;flex-wrap:wrap}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:720px){.grid{grid-template-columns:1fr}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+.panel h2{font-size:14px;margin:0 0 10px;color:var(--dim);text-transform:uppercase;letter-spacing:.03em}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:right;padding:6px 8px;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left}
+.opt-name{font-weight:600;color:var(--text)}
+.seg{color:var(--dim);font-size:12px}
+.subhead{color:var(--dim);font-size:11px;text-transform:uppercase}
+.log td{font-size:12.5px}
+.flag{font-size:11px;padding:2px 6px;border-radius:6px;background:#2a2340;color:#b79bff;margin-right:4px}
+.flag.anom{background:#3a2a1a;color:var(--warn)}
+.flag.disc{background:#3a1e22;color:var(--danger)}
+button.mini{background:transparent;border:1px solid var(--line);color:var(--dim);border-radius:6px;
+  padding:3px 8px;font-size:12px;cursor:pointer}
+.muted{color:var(--dim)}
+</style>
+
+<div class="wrap">
+  <h1>Path Race — stats</h1>
+  <div class="toolbar">
+    <a href=".">← logger</a>
+    <label><input type="checkbox" id="incl-anom"> include anomalous</label>
+    <span class="muted" id="meta"></span>
+  </div>
+
+  <div class="grid" id="panels"></div>
+
+  <h2 style="margin-top:26px">Trip log</h2>
+  <div class="panel"><table class="log" id="log"></table></div>
+</div>
+
+<script>
+const PREFIX = location.pathname.replace(/\/stats\/?$/, '');
+const API = p => `${PREFIX}/api${p}`;
+const fmt = ms => ms==null ? '—' : `${(Math.round(ms/1000)/60|0)}m ${Math.round(ms/1000)%60}s`;
+const EXPS = [['boarding','morning'],['boarding','evening'],['office','morning'],['office','evening']];
+const TITLES = {boarding:'Boarding option',office:'Office station'};
+
+async function loadStats(){
+  const incl = document.getElementById('incl-anom').checked;
+  const s = await (await fetch(API(`/stats?include_anomalous=${incl}`))).json();
+  document.getElementById('meta').textContent =
+    `ToD split: morning ${s.tod_boundaries.morning}, evening ${s.tod_boundaries.evening} · generated ${s.generated_at.slice(0,19)}`;
+  const root = document.getElementById('panels'); root.innerHTML='';
+  for (const [exp,dir] of EXPS){
+    const panel = (s.panels[exp]||{})[dir] || {options:{}};
+    root.appendChild(renderPanel(exp,dir,panel));
+  }
+}
+function renderPanel(exp,dir,panel){
+  const el = document.createElement('div'); el.className='panel';
+  let html = `<h2>${TITLES[exp]} · ${dir}</h2>`;
+  const opts = panel.options||{};
+  const keys = Object.keys(opts);
+  if(!keys.length){ el.innerHTML = html+`<p class="muted">No trips yet.</p>`; return el; }
+  html += `<table><tr><th>Option</th><th>n</th><th>mean</th><th>median</th><th>crowd</th></tr>`;
+  for(const k of keys){
+    const o=opts[k];
+    html += `<tr><td class="opt-name">${k}</td><td>${o.count}</td><td>${fmt(o.mean_ms)}</td>`
+      + `<td>${fmt(o.median_ms)}</td><td>${o.avg_crowding??'—'}</td></tr>`;
+    // ToD split
+    const t=o.tod;
+    html += `<tr class="seg"><td>&nbsp;&nbsp;early</td><td>${t.early.count}</td><td>${fmt(t.early.mean_ms)}</td><td>${fmt(t.early.median_ms)}</td><td>${t.early.avg_crowding??'—'}</td></tr>`;
+    html += `<tr class="seg"><td>&nbsp;&nbsp;late</td><td>${t.late.count}</td><td>${fmt(t.late.mean_ms)}</td><td>${fmt(t.late.median_ms)}</td><td>${t.late.avg_crowding??'—'}</td></tr>`;
+    // segments (diagnosis, subordinate)
+    if(o.segments && o.segments.length){
+      html += `<tr class="seg"><td colspan="5"><span class="subhead">segments</span></td></tr>`;
+      for(const sg of o.segments)
+        html += `<tr class="seg"><td colspan="2">${sg.from} → ${sg.to}</td><td colspan="2">${fmt(sg.mean_ms)}</td><td>×${sg.count}</td></tr>`;
+    }
+  }
+  html += `</table>`;
+  el.innerHTML=html; return el;
+}
+
+async function loadLog(){
+  const {trips} = await (await fetch(API('/trips?limit=300'))).json();
+  const t = document.getElementById('log');
+  let html = `<tr><th>Date</th><th>Dir</th><th>Board</th><th>Office</th><th>Total</th><th>Crowd</th><th>Flags</th><th></th></tr>`;
+  for(const tr of trips){
+    const flags = [];
+    if(tr.status==='discarded') flags.push('<span class="flag disc">discarded</span>');
+    if(tr.anomalous) flags.push(`<span class="flag anom">anom${tr.anomaly_reason?': '+tr.anomaly_reason:''}</span>`);
+    if(tr.untrusted_taps) flags.push(`<span class="flag">${tr.untrusted_taps} untrusted</span>`);
+    html += `<tr>
+      <td>${tr.date?tr.date.slice(0,16).replace('T',' '):'—'}</td>
+      <td>${tr.direction}</td>
+      <td>${tr.boarding_option||'—'}</td>
+      <td>${tr.office_station||'—'}</td>
+      <td>${fmt(tr.total_ms)}</td>
+      <td>${tr.crowding??'—'}</td>
+      <td>${flags.join('')||'<span class="muted">—</span>'}</td>
+      <td>
+        <button class="mini" data-id="${tr.id}" data-act="disc">${tr.status==='discarded'?'undiscard':'discard'}</button>
+        <button class="mini" data-id="${tr.id}" data-act="anom">${tr.anomalous?'un-anom':'anom'}</button>
+      </td></tr>`;
+  }
+  t.innerHTML = html;
+  t.querySelectorAll('button.mini').forEach(b => b.onclick = () => toggle(b.dataset.id, b.dataset.act, trips));
+}
+async function toggle(id, act, trips){
+  const tr = trips.find(x=>x.id===id);
+  const body = act==='disc'
+    ? {status: tr.status==='discarded'?'done':'discarded'}
+    : {anomalous: !tr.anomalous};
+  await fetch(API(`/trips/${id}`),{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+  refresh();
+}
+function refresh(){ loadStats(); loadLog(); }
+document.getElementById('incl-anom').onchange = loadStats;
+refresh();
+</script>

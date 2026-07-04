@@ -1,0 +1,14 @@
+{
+  "name": "Path Race",
+  "short_name": "PathRace",
+  "description": "Commute checkpoint tap logger",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b0e14",
+  "theme_color": "#0b0e14",
+  "icons": [
+    { "src": "static/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
