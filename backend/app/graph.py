@@ -23,12 +23,12 @@ Node attributes:
 # option, so precision is not critical. Station values marked (real) are the
 # Google Maps place coordinates; (est) are estimates pending a real fix.
 _C = {
-    "home":            (32.0910, 34.8760),   # (est) Petah Tikva
-    "office":          (32.0585, 34.7920),   # (est) HaMelacha St, Tel Aviv
+    "home":            (32.107083, 34.879899),  # (real) Shraga Refa'eli St 9, Petah Tikva
+    "office":          (32.066724, 34.785536),  # (real) HaMelacha area, Tel Aviv
     "pinsker":         (32.093731, 34.882202),  # (real)
     "kroll":           (32.091911, 34.877506),  # (real)
     "dankner":         (32.090950, 34.872166),  # (real)
-    "beilinson":       (32.091300, 34.862800),  # (est) interpolated Dankner<->Shenkar
+    "beilinson":       (32.091461, 34.866802),  # (real)
     "shaham":          (32.092670, 34.853252),  # (real, labelled "Shenkar" on maps)
     "kiryat_arye":     (32.105930, 34.861897),  # (real)
     "yehudit":         (32.070168, 34.788406),  # (real)
