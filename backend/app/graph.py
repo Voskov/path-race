@@ -55,12 +55,20 @@ def _n(display, nxt, station=None, optional=False, hinge=None,
 
 MORNING = {
     "home": _n("Home", [
-        "pinsker_doors_close", "kiryat_arye_entrance", "shaham_doors_close",
-        "kroll_doors_close", "dankner_doors_close", "beilinson_doors_close",
+        "pinsker_platform", "kiryat_arye_entrance", "shaham_platform",
+        "kroll_platform", "dankner_platform", "beilinson_platform",
     ], station="home"),
 
-    # R1 curbside boardings — scooter arrives at the platform, so the boarding
-    # tap is just doors_close. Each may optionally ride through Shaham, or skip
+    # Platform-arrival checkpoints — the boundary between the scoot (home →
+    # platform) and the wait (platform → doors_close). Mandatory on path: no
+    # edge bypasses them, unlike the optional Shaham ride-through.
+    "pinsker_platform":    _n("Pinsker · platform",    ["pinsker_doors_close"],    station="pinsker"),
+    "kroll_platform":      _n("Kroll · platform",      ["kroll_doors_close"],      station="kroll"),
+    "dankner_platform":    _n("Dankner · platform",    ["dankner_doors_close"],    station="dankner"),
+    "beilinson_platform":  _n("Beilinson · platform",  ["beilinson_doors_close"],  station="beilinson"),
+    "shaham_platform":     _n("Shaham · platform",     ["shaham_doors_close"],     station="shaham"),
+
+    # R1 curbside boardings. Each may optionally ride through Shaham, or skip
     # straight to the Yehudit hinge.
     "pinsker_doors_close":   _n("Pinsker · doors close",   ["shaham_doors_close", "yehudit_doors_open"], station="pinsker", boarding=True),
     "kroll_doors_close":     _n("Kroll · doors close",     ["shaham_doors_close", "yehudit_doors_open"], station="kroll",     boarding=True, optional=True),

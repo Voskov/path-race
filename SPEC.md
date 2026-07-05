@@ -57,12 +57,17 @@ terminal tap.
 
 ```mermaid
 flowchart TD
-    H[home] --> PDC[pinsker_doors_close]
+    H[home] --> PP[pinsker_platform]
     H --> KAE[kiryat_arye_entrance]
-    H --> SDC[shaham_doors_close]
-    H -.-> KRDC[kroll_doors_close]
-    H -.-> DDC[dankner_doors_close]
-    H -.-> BDC[beilinson_doors_close]
+    H --> SP[shaham_platform]
+    H -.-> KRP[kroll_platform]
+    H -.-> DP[dankner_platform]
+    H -.-> BP[beilinson_platform]
+    PP --> PDC[pinsker_doors_close]
+    KRP -.-> KRDC[kroll_doors_close]
+    DP -.-> DDC[dankner_doors_close]
+    BP -.-> BDC[beilinson_doors_close]
+    SP --> SDC[shaham_doors_close]
     KAE --> KAP[kiryat_arye_platform]
     KAP --> KDC[kiryat_arye_doors_close]
     PDC -.->|optional ride-through| SDC
@@ -88,9 +93,12 @@ shaham_doors_close (optional ride-through) and yehudit_doors_open (if the rider 
 the optional tap). Optional nodes must be skippable without any "skip" action — the graph
 simply allows the edge that bypasses them.
 
-Home-side segments before boarding: Pinsker/Shaham/reserve stops are curbside platforms —
-scooter arrives essentially at the platform, so the boarding tap is just doors_close.
-Kiryat Arye has internal structure worth diagnosing: entrance → platform → doors_close.
+Home-side segments before boarding: every surface boarding option now has a dedicated
+platform-arrival checkpoint between home and the doors_close tap
+(home → `<station>_platform` → `<station>_doors_close`), splitting the scoot (home → platform)
+from the wait (platform → doors_close). Unlike the optional Shaham ride-through, platform
+taps are mandatory on path — no edge bypasses them. Kiryat Arye keeps its existing internal
+structure unchanged: entrance → platform → doors_close.
 
 **Evening (Office → Home):**
 
@@ -178,6 +186,15 @@ if their endpoint taps are trusted.
   under the thumb while GPS jitters.
 - Log lat/lng/accuracy with each tap when available (audit data, costs nothing).
 - Geolocation requires HTTPS (provided by the existing nginx/domain setup).
+
+**Bottom-anchored, one-handed layout.** The slider stack anchors to the bottom of the
+viewport: the top-ranked option is the bottom-most slider (closest to the thumb), lower-ranked
+options stack upward above it, and the "more…" fold sits at the top of the stack and expands
+upward. The primary (bottom-most) slider never moves when the fold opens or the ranking
+reorders — only what's stacked above it changes. Rare actions (discard, anomalous toggle,
+crowding tag) and the trip-status header live at the top of the screen, out of the lazy thumb
+zone; the undo toast renders up there too, never over the area the thumb just used. Bottom
+safe-area insets (gesture nav) are respected.
 
 **Always reachable during a trip:** Discard trip (soft-delete; slider-guarded, no extra
 confirm dialog), crowding tag (1=seat, 2=stand-OK, 3=sardine; one tap, allowed anytime

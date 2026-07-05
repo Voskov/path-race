@@ -16,14 +16,12 @@
     <a id="stats-link" href="stats" class="ghost-btn">Stats</a>
   </header>
 
-  <main id="board">
-    <div id="current-label" class="current-label"></div>
-    <div id="options"></div>
-    <div id="more-fold" hidden>
-      <button id="more-toggle" class="fold-toggle">more…</button>
-      <div id="more-options"></div>
-    </div>
-  </main>
+  <div id="current-label" class="current-label"></div>
+
+  <div id="undo-toast" class="toast" hidden>
+    <span id="undo-text">Logged</span>
+    <button id="undo-btn">Undo</button>
+  </div>
 
   <section id="trip-controls" hidden>
     <div class="crowding" role="group" aria-label="crowding">
@@ -39,10 +37,16 @@
     <div id="discard-slot"></div>
   </section>
 
-  <div id="undo-toast" class="toast" hidden>
-    <span id="undo-text">Logged</span>
-    <button id="undo-btn">Undo</button>
-  </div>
+  <!-- Bottom-anchored: column-reverse, so the first child (top-ranked option)
+       renders as the bottom-most slider, closest to the thumb. The fold is the
+       last child so it renders at the top of the stack and expands upward. -->
+  <main id="board">
+    <div id="options"></div>
+    <div id="more-fold" hidden>
+      <div id="more-options"></div>
+      <button id="more-toggle" class="fold-toggle">more…</button>
+    </div>
+  </main>
 
   <div id="pull-refresh" class="pull-refresh">↓ pull to re-rank</div>
 </div>

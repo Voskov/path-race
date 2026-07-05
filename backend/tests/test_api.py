@@ -56,7 +56,7 @@ def test_create_infers_direction():
     assert state["current_key"] == "home"
     # options are home's out-edges
     keys = {o["key"] for o in state["options"]}
-    assert "pinsker_doors_close" in keys and "kiryat_arye_entrance" in keys
+    assert "pinsker_platform" in keys and "kiryat_arye_entrance" in keys
 
 
 def test_one_active_trip_conflict():
@@ -158,6 +158,47 @@ def test_stats_excludes_untrusted_bracket():
     boarding = s["panels"]["boarding"]["morning"]["options"]
     # yehudit_doors_open endpoint untrusted -> boarding bracket invalid -> count 0
     assert boarding.get("pinsker", {}).get("count", 0) == 0
+
+
+def test_platform_tap_splits_scoot_wait_ride_segments():
+    # morning trip via Pinsker WITH the platform-arrival tap: home -> platform
+    # (scoot) -> doors_close (wait) -> yehudit_doors_open (ride)
+    trip_id, first, _ = start_morning(1_000_000)
+    plan = [("pinsker_platform", 1_050_000), ("pinsker_doors_close", 1_060_000),
+            ("yehudit_doors_open", 1_600_000)]
+    seq = 1
+    for key, ts in plan:
+        client.post(API(f"/trips/{trip_id}/taps"), json={"taps": [_tap(key, ts, seq)]})
+        seq += 1
+    client.patch(API(f"/trips/{trip_id}"), json={"status": "done"})
+
+    s = client.get(API("/stats")).json()
+    boarding = s["panels"]["boarding"]["morning"]["options"]
+    # bracket total unchanged: home -> yehudit_doors_open regardless of the split
+    assert boarding["pinsker"]["mean_ms"] == 600_000
+    segs = {(sg["from"], sg["to"]): sg["mean_ms"] for sg in boarding["pinsker"]["segments"]}
+    assert segs[("home", "pinsker_platform")] == 50_000        # scoot
+    assert segs[("pinsker_platform", "pinsker_doors_close")] == 10_000  # wait
+    assert segs[("pinsker_doors_close", "yehudit_doors_open")] == 540_000  # ride
+
+
+def test_trip_without_platform_tap_still_valid():
+    # migration: an old-style trip that skips the platform tap must still work,
+    # it just can't split the home->doors_close segment.
+    trip_id, first, _ = start_morning(1_000_000)
+    plan = [("pinsker_doors_close", 1_060_000), ("yehudit_doors_open", 1_600_000)]
+    seq = 1
+    for key, ts in plan:
+        client.post(API(f"/trips/{trip_id}/taps"), json={"taps": [_tap(key, ts, seq)]})
+        seq += 1
+    client.patch(API(f"/trips/{trip_id}"), json={"status": "done"})
+
+    s = client.get(API("/stats")).json()
+    boarding = s["panels"]["boarding"]["morning"]["options"]
+    assert boarding["pinsker"]["mean_ms"] == 600_000
+    segs = {(sg["from"], sg["to"]) for sg in boarding["pinsker"]["segments"]}
+    assert ("home", "pinsker_doors_close") in segs
+    assert ("home", "pinsker_platform") not in segs
 
 
 def test_trip_log_and_discard_toggle():

@@ -4,6 +4,7 @@
   --warn:#ffb020; --danger:#ff5964; --track:#0f1420;
 }
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
 html,body{margin:0;height:100%}
 body{
   background:var(--bg); color:var(--text);
@@ -19,9 +20,11 @@ body{
 .net.online{color:var(--commit)} .net.offline{color:var(--warn)} .net.syncing{color:var(--accent)}
 .ghost-btn{color:var(--dim);text-decoration:none;font-size:13px;border:1px solid var(--line);
   padding:5px 11px;border-radius:8px}
-#board{flex:1;display:flex;flex-direction:column;gap:10px;padding-top:6px}
+/* Bottom-anchored slider stack: #board is the last in-flow child of #app, so it
+   fills all remaining height and (via column-reverse) hugs the bottom edge. */
+#board{flex:1;display:flex;flex-direction:column-reverse;gap:10px}
 .current-label{color:var(--dim);font-size:13px;letter-spacing:.02em;text-transform:uppercase;
-  padding:2px 4px;min-height:16px}
+  padding:8px 4px 2px;min-height:16px}
 
 /* slide-to-commit */
 .slider{position:relative;height:66px;border-radius:14px;background:var(--track);
@@ -43,9 +46,15 @@ body{
 .slider.hinge-secondary .tag{color:var(--warn)}
 
 .fold-toggle{width:100%;background:transparent;border:1px dashed var(--line);color:var(--dim);
-  border-radius:10px;padding:9px;font-size:13px;margin-top:2px}
-#more-options{display:flex;flex-direction:column;gap:10px;margin-top:10px}
-#options{display:flex;flex-direction:column;gap:10px}
+  border-radius:10px;padding:9px;font-size:13px}
+/* #more-fold is the topmost item in #board's reversed stack; inside it, the
+   options list sits above the toggle button so expanding grows upward, away
+   from the primary (bottom-most) slider. */
+#more-fold{display:flex;flex-direction:column;gap:10px}
+#more-options{display:flex;flex-direction:column;gap:10px}
+/* #options is itself reversed so its first child (top-ranked option) lands at
+   the very bottom of the whole stack, flush with the screen edge. */
+#options{display:flex;flex-direction:column-reverse;gap:10px}
 
 /* trip controls */
 #trip-controls{display:flex;flex-direction:column;gap:12px;border-top:1px solid var(--line);
@@ -60,7 +69,9 @@ body{
 .slider.danger .fill{background:linear-gradient(90deg,#5a1f24,#ff5964)}
 .slider.danger .knob{color:var(--danger)}
 
-.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom) + 16px);
+/* Fixed to the top: the thumb was just at the bottom (slider stack), so the
+   toast must never render over that area. */
+.toast{position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top) + 46px);
   background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:11px 14px;
   display:flex;align-items:center;gap:14px;box-shadow:0 6px 20px rgba(0,0,0,.5);z-index:20}
 #undo-btn{background:var(--danger);border:none;color:#fff;border-radius:8px;padding:7px 14px;font-weight:600}
