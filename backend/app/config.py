@@ -17,7 +17,7 @@ class Settings:
     DB_PATH = os.environ.get("DB_PATH", os.path.join("data", "pathrace.db"))
 
     # Tap UX
-    DOUBLE_TAP_THRESHOLD_S = _int("DOUBLE_TAP_THRESHOLD_S", 7)
+    DOUBLE_TAP_THRESHOLD_S = _int("DOUBLE_TAP_THRESHOLD_S", 3)
     UNDO_TOAST_MS = _int("UNDO_TOAST_MS", 5000)
 
     # Location filter

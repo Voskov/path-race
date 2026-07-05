@@ -55,13 +55,23 @@ def _n(display, nxt, station=None, optional=False, hinge=None,
 
 MORNING = {
     "home": _n("Home", [
-        "pinsker_doors_close", "kiryat_arye_entrance", "shaham_doors_close",
-        "kroll_doors_close", "dankner_doors_close", "beilinson_doors_close",
+        "pinsker_platform", "kiryat_arye_entrance", "shaham_platform",
+        "kroll_platform", "dankner_platform", "beilinson_platform",
     ], station="home"),
 
-    # R1 curbside boardings — scooter arrives at the platform, so the boarding
-    # tap is just doors_close. Each may optionally ride through Shaham, or skip
-    # straight to the Yehudit hinge.
+    # Surface platform arrivals — mandatory boundary between the scoot segment
+    # (home → platform) and the wait segment (platform → doors_close). The
+    # optional flag on reserve stations is the reserve-station styling cue only;
+    # once on a path the platform tap is required by the wiring.
+    "pinsker_platform":   _n("Pinsker · platform",   ["pinsker_doors_close"],   station="pinsker"),
+    "shaham_platform":    _n("Shaham · platform",    ["shaham_doors_close"],    station="shaham"),
+    "kroll_platform":     _n("Kroll · platform",     ["kroll_doors_close"],     station="kroll",     optional=True),
+    "dankner_platform":   _n("Dankner · platform",   ["dankner_doors_close"],   station="dankner",   optional=True),
+    "beilinson_platform": _n("Beilinson · platform", ["beilinson_doors_close"], station="beilinson", optional=True),
+
+    # R1 boardings — the boarding tap is doors_close, reached via the platform
+    # node. Each may optionally ride through Shaham (direct edge, no platform),
+    # or skip straight to the Yehudit hinge.
     "pinsker_doors_close":   _n("Pinsker · doors close",   ["shaham_doors_close", "yehudit_doors_open"], station="pinsker", boarding=True),
     "kroll_doors_close":     _n("Kroll · doors close",     ["shaham_doors_close", "yehudit_doors_open"], station="kroll",     boarding=True, optional=True),
     "dankner_doors_close":   _n("Dankner · doors close",   ["shaham_doors_close", "yehudit_doors_open"], station="dankner",   boarding=True, optional=True),

@@ -4,7 +4,7 @@ import uuid
 
 os.environ["DB_PATH"] = os.path.join(tempfile.mkdtemp(), "test.db")
 os.environ["PATH_PREFIX"] = "race-test"
-os.environ["DOUBLE_TAP_THRESHOLD_S"] = "7"
+os.environ["DOUBLE_TAP_THRESHOLD_S"] = "3"
 
 import pytest
 from fastapi.testclient import TestClient
@@ -54,9 +54,10 @@ def test_create_infers_direction():
     _, _, state = start_morning()
     assert state["trip"]["direction"] == "morning"
     assert state["current_key"] == "home"
-    # options are home's out-edges
+    # options are home's out-edges: surface boardings go via the platform node
     keys = {o["key"] for o in state["options"]}
-    assert "pinsker_doors_close" in keys and "kiryat_arye_entrance" in keys
+    assert "pinsker_platform" in keys and "kiryat_arye_entrance" in keys
+    assert "pinsker_doors_close" not in keys  # reachable only via the platform
 
 
 def test_one_active_trip_conflict():
@@ -91,8 +92,8 @@ def test_terminal_autocompletes():
     trip_id, first, _ = start_morning()
     seq = 1
     ts = 1_000_000
-    for key in ["pinsker_doors_close", "yehudit_doors_open", "yehudit_gate",
-                "street_morning", "office"]:
+    for key in ["pinsker_platform", "pinsker_doors_close", "yehudit_doors_open",
+                "yehudit_gate", "street_morning", "office"]:
         ts += 60_000
         client.post(API(f"/trips/{trip_id}/taps"),
                     json={"taps": [_tap(key, ts, seq)]})
@@ -107,20 +108,33 @@ def test_terminal_autocompletes():
 
 def test_double_tap_invalidation():
     trip_id, first, _ = start_morning()
-    # two taps 3s apart (< 7s threshold) -> earlier one untrusted
+    # platform -> doors_close 2s apart (< 3s threshold) -> earlier tap untrusted
     client.post(API(f"/trips/{trip_id}/taps"), json={"taps": [
-        _tap("pinsker_doors_close", 1_060_000, 1),
-        _tap("yehudit_doors_open", 1_063_000, 2),
+        _tap("pinsker_platform", 1_300_000, 1),
+        _tap("pinsker_doors_close", 1_302_000, 2),
     ]})
     taps = {t["checkpoint_key"]: t for t in client.get(API("/state")).json()["taps"]}
-    assert taps["pinsker_doors_close"]["ts_trusted"] is False
-    assert taps["yehudit_doors_open"]["ts_trusted"] is True
-    # home->pinsker was 60s so home stays trusted
+    assert taps["pinsker_platform"]["ts_trusted"] is False
+    assert taps["pinsker_doors_close"]["ts_trusted"] is True
+    # home->platform was 300s so home stays trusted
     assert taps["home"]["ts_trusted"] is True
 
 
+def test_short_honest_wait_stays_trusted():
+    trip_id, first, _ = start_morning()
+    # train already at platform: 5s wait is honest and must survive at N=3s
+    client.post(API(f"/trips/{trip_id}/taps"), json={"taps": [
+        _tap("pinsker_platform", 1_300_000, 1),
+        _tap("pinsker_doors_close", 1_305_000, 2),
+    ]})
+    taps = {t["checkpoint_key"]: t for t in client.get(API("/state")).json()["taps"]}
+    assert taps["pinsker_platform"]["ts_trusted"] is True
+    assert taps["pinsker_doors_close"]["ts_trusted"] is True
+
+
 def test_stats_bracket_and_inference():
-    # full clean morning trip via Pinsker to Yehudit(office)
+    # legacy-shaped trip WITHOUT a platform tap (pre-migration data): still a
+    # full valid trip, bracket counts, home->doors_close stays an unsplit segment
     trip_id, first, _ = start_morning(1_000_000)
     plan = [("pinsker_doors_close", 1_060_000), ("yehudit_doors_open", 1_600_000),
             ("yehudit_gate", 1_660_000), ("street_morning", 1_720_000),
@@ -136,18 +150,44 @@ def test_stats_bracket_and_inference():
     assert "pinsker" in boarding
     # bracket home(1_000_000) -> yehudit_doors_open(1_600_000) = 600_000ms
     assert boarding["pinsker"]["mean_ms"] == 600_000
+    segs = {(x["from"], x["to"]) for x in boarding["pinsker"]["segments"]}
+    assert ("home", "pinsker_doors_close") in segs  # unsplit, not backfilled
     office = s["panels"]["office"]["morning"]["options"]
     # yehudit office bracket yehudit_doors_open->office = 1_900_000-1_600_000=300_000
     assert "yehudit" in office
     assert office["yehudit"]["mean_ms"] == 300_000
 
 
+def test_stats_scoot_wait_ride_split():
+    # platform-era trip: scoot / wait / ride appear as separate segments and the
+    # bracket total still spans home -> yehudit_doors_open (wait stays inside)
+    trip_id, first, _ = start_morning(1_000_000)
+    plan = [("pinsker_platform", 1_300_000),      # scoot 300s
+            ("pinsker_doors_close", 1_420_000),   # wait 120s
+            ("yehudit_doors_open", 1_900_000),    # ride 480s
+            ("yehudit_gate", 1_960_000),
+            ("street_morning", 2_020_000),
+            ("office", 2_200_000)]
+    seq = 1
+    for key, ts in plan:
+        client.post(API(f"/trips/{trip_id}/taps"), json={"taps": [_tap(key, ts, seq)]})
+        seq += 1
+
+    s = client.get(API("/stats")).json()
+    pinsker = s["panels"]["boarding"]["morning"]["options"]["pinsker"]
+    assert pinsker["mean_ms"] == 900_000  # 1_900_000 - 1_000_000, wait included
+    segs = {(x["from"], x["to"]): x["mean_ms"] for x in pinsker["segments"]}
+    assert segs[("home", "pinsker_platform")] == 300_000
+    assert segs[("pinsker_platform", "pinsker_doors_close")] == 120_000
+    assert segs[("pinsker_doors_close", "yehudit_doors_open")] == 480_000
+
+
 def test_stats_excludes_untrusted_bracket():
     trip_id, first, _ = start_morning(1_000_000)
-    # make yehudit_doors_open untrusted by tapping office-side hinge <7s later
+    # make yehudit_doors_open untrusted by tapping office-side hinge <3s later
     plan = [("pinsker_doors_close", 1_060_000),
             ("yehudit_doors_open", 1_600_000),
-            ("yehudit_gate", 1_603_000)]  # 3s -> yehudit_doors_open untrusted
+            ("yehudit_gate", 1_602_000)]  # 2s -> yehudit_doors_open untrusted
     seq = 1
     for key, ts in plan:
         client.post(API(f"/trips/{trip_id}/taps"), json={"taps": [_tap(key, ts, seq)]})

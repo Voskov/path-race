@@ -16,15 +16,9 @@
     <a id="stats-link" href="stats" class="ghost-btn">Stats</a>
   </header>
 
-  <main id="board">
-    <div id="current-label" class="current-label"></div>
-    <div id="options"></div>
-    <div id="more-fold" hidden>
-      <button id="more-toggle" class="fold-toggle">more…</button>
-      <div id="more-options"></div>
-    </div>
-  </main>
+  <div id="current-label" class="current-label"></div>
 
+  <!-- rare actions live at the top, out of the thumb zone -->
   <section id="trip-controls" hidden>
     <div class="crowding" role="group" aria-label="crowding">
       <span class="ctl-label">Crowding</span>
@@ -39,10 +33,20 @@
     <div id="discard-slot"></div>
   </section>
 
-  <div id="undo-toast" class="toast" hidden>
-    <span id="undo-text">Logged</span>
-    <button id="undo-btn">Undo</button>
-  </div>
+  <!-- bottom-anchored: column-reverse, so the first child (#options, with the
+       highest-ranked slider first) is pinned to the bottom; the fold sits above
+       and expands upward; the toast above everything the thumb uses -->
+  <main id="board">
+    <div id="options"></div>
+    <div id="more-fold" hidden>
+      <button id="more-toggle" class="fold-toggle">more…</button>
+      <div id="more-options"></div>
+    </div>
+    <div id="undo-toast" class="toast" hidden>
+      <span id="undo-text">Logged</span>
+      <button id="undo-btn">Undo</button>
+    </div>
+  </main>
 
   <div id="pull-refresh" class="pull-refresh">↓ pull to re-rank</div>
 </div>

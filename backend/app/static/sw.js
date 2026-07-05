@@ -2,7 +2,7 @@
  * works offline); network-only for /api (the app owns its own offline queue,
  * so we never want stale API responses served from cache). */
 const PREFIX = self.location.pathname.replace(/\/sw\.js$/, '');
-const CACHE = 'path-race-v2';
+const CACHE = 'path-race-v3';
 const SHELL = [
   `${PREFIX}/`,
   `${PREFIX}/static/app.js`,

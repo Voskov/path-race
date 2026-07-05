@@ -362,12 +362,14 @@ function wire() {
     if (document.visibilityState === 'visible') { refreshFix(reorder); reconcileOnStart(); }
   });
 
-  // pull-to-refresh reorder moment
+  // pull-to-refresh reorder moment. #board is column-reverse: scrollTop is 0
+  // at its bottom rest position and goes negative when scrolled up.
+  const atRest = () => $('board').scrollTop >= 0;
   let touchStartY = 0, pulling = false;
-  window.addEventListener('touchstart', e => { if (window.scrollY <= 0) touchStartY = e.touches[0].clientY; });
+  window.addEventListener('touchstart', e => { if (atRest()) touchStartY = e.touches[0].clientY; });
   window.addEventListener('touchmove', e => {
     const dy = e.touches[0].clientY - touchStartY;
-    if (window.scrollY <= 0 && dy > 60 && !pulling) {
+    if (atRest() && dy > 60 && !pulling) {
       pulling = true; $('pull-refresh').style.top = '6px';
       refreshFix(() => { reorder(); $('pull-refresh').style.top = '-40px'; pulling = false; });
     }
