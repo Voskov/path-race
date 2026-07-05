@@ -174,35 +174,42 @@ app.include_router(api)
 
 
 # ---- static / pages --------------------------------------------------------
+# PFX is "" when PATH_PREFIX is unset (app served at the domain root) or
+# "/race-xxxx" when a secret prefix is configured.
+PFX = settings.prefix
 
-@app.get(f"{settings.prefix}/")
-@app.get(f"{settings.prefix}")
+
+@app.get(f"{PFX}/")
 def index():
     return FileResponse(os.path.join(STATIC_DIR, "index.html"))
 
 
-@app.get(f"{settings.prefix}/stats")
+@app.get(f"{PFX}/stats")
 def stats_page():
     return FileResponse(os.path.join(STATIC_DIR, "stats.html"))
 
 
-@app.get(f"{settings.prefix}/manifest.webmanifest")
+@app.get(f"{PFX}/manifest.webmanifest")
 def manifest():
     return FileResponse(os.path.join(STATIC_DIR, "manifest.webmanifest"),
                         media_type="application/manifest+json")
 
 
-@app.get(f"{settings.prefix}/sw.js")
+@app.get(f"{PFX}/sw.js")
 def service_worker():
     # served at the app scope so it can control the whole prefix
     return FileResponse(os.path.join(STATIC_DIR, "sw.js"),
                         media_type="application/javascript")
 
 
-app.mount(f"{settings.prefix}/static", StaticFiles(directory=STATIC_DIR), name="static")
+app.mount(f"{PFX}/static", StaticFiles(directory=STATIC_DIR), name="static")
 
+if PFX:
+    # secret-prefix mode: no-slash prefix also serves the app; bare root hides everything
+    @app.get(PFX)
+    def index_noslash():
+        return index()
 
-@app.get("/")
-def root_redirect():
-    # bare root reveals nothing about the real path
-    return JSONResponse({"ok": True}, status_code=200)
+    @app.get("/")
+    def root_redirect():
+        return JSONResponse({"ok": True}, status_code=200)

@@ -31,12 +31,13 @@ class Settings:
 
     @property
     def prefix(self) -> str:
-        return f"/{self.PATH_PREFIX}"
+        # empty PATH_PREFIX => serve at the domain root
+        return f"/{self.PATH_PREFIX}" if self.PATH_PREFIX else ""
 
     def client_config(self) -> dict:
         """Subset shipped to the browser."""
         return {
-            "prefix": self.prefix,
+            "prefix": self.prefix or "/",
             "doubleTapThresholdMs": self.DOUBLE_TAP_THRESHOLD_S * 1000,
             "undoToastMs": self.UNDO_TOAST_MS,
             "locationMaxAccuracyM": self.LOCATION_MAX_ACCURACY_M,
