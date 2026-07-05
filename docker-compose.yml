@@ -1,15 +1,25 @@
+# Deploys behind the shared `infra` nginx (reverse proxy + certbot).
+# nginx reaches this container by name over the external `infra` network, so no
+# host port is published — all access is through the proxy under the secret path
+# prefix. For standalone/local runs, either create the `infra` network or use
+# uvicorn directly (see README).
+networks:
+  infra:
+    external: true
+
 services:
   pathrace:
     build: .
+    container_name: pathrace
     restart: unless-stopped
     env_file: .env
-    ports:
-      - "${PORT:-8000}:8000"
     environment:
       - PORT=8000
       - DB_PATH=/data/pathrace.db
     volumes:
       - pathrace-db:/data
+    networks:
+      - infra
 
 volumes:
   pathrace-db:

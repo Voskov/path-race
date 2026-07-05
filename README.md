@@ -59,33 +59,29 @@ Run the tests:
 cd backend && ../.venv/Scripts/python -m pytest -q
 ```
 
-## Deploy (Docker Compose)
+## Deploy (Docker Compose behind a shared nginx proxy)
+
+The container publishes **no host port** — it joins the external `infra` Docker
+network and is reached by name (`pathrace:8000`) from a shared nginx reverse
+proxy that terminates TLS. Adapt if your proxy differs.
 
 ```bash
-cp .env.example .env        # then edit — at minimum set your own PATH_PREFIX
+cp .env.example .env        # then edit — set your own secret PATH_PREFIX
 docker compose up -d --build
 ```
 
-The DB lives in the `pathrace-db` volume. The container listens on port 8000
-(host `${PORT}`); everything is served under `/${PATH_PREFIX}/`.
+The DB lives in the `pathrace-db` volume. Everything is served under
+`/${PATH_PREFIX}/`; the bare site exposes nothing, so the prefix is the secret.
 
-### nginx snippet
+### nginx (reverse proxy)
 
-Add to your existing HTTPS server block. Replace the prefix with your real one
-(the value of `PATH_PREFIX`), and the port if you changed it:
+A ready subdomain server block is in [`deploy/pathrace.conf`](deploy/pathrace.conf)
+— it proxies `location /` to `http://pathrace:8000` (the full URI, including the
+prefix, is passed through). Point a DNS record at the host, drop the conf into
+your proxy's `conf.d/`, bootstrap the cert, and reload. If you instead front the
+app on the host, `proxy_pass http://127.0.0.1:8000;` works too.
 
-```nginx
-location /race-e97f41eb35828b03/ {
-    proxy_pass         http://127.0.0.1:8000;
-    proxy_http_version 1.1;
-    proxy_set_header   Host $host;
-    proxy_set_header   X-Forwarded-Proto $scheme;
-    proxy_set_header   X-Forwarded-For  $proxy_add_x_forwarded_for;
-}
-```
-
-HTTPS (already set up on your domain) is required for geolocation and for the
-PWA/service worker to install.
+HTTPS is required for geolocation and for the PWA/service worker to install.
 
 ## Configuration (env vars)
 
