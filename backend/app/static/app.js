@@ -117,7 +117,8 @@ function commitOption(opt) {
   }
   save();
   showUndoToast(opt.display);
-  refreshFix(reorder);      // reorder moment: tap commit
+  reorder();                // advance to the next node's options immediately
+  refreshFix(reorder);      // then re-rank once a fresh GPS fix arrives (may lag)
   scheduleSync();
 }
 
