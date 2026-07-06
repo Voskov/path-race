@@ -289,11 +289,10 @@ function toggleControls() {
   $('anomaly-toggle').checked = !!S.trip.anomalous;
   $('anomaly-reason').hidden = !S.trip.anomalous;
   $('anomaly-reason').value = S.trip.anomaly_reason || '';
-  // discard slider (slider-guarded, no extra confirm)
+  // discard button (hold-guarded, no extra confirm)
   if (!slot.dataset.built) {
-    const s = makeSlider({ key: '__discard', display: 'Slide to discard trip',
-                           optional: false, hinge: null }, discardTrip, 'danger');
-    slot.appendChild(s); slot.dataset.built = '1';
+    slot.appendChild(makeHoldButton('Hold to discard trip', discardTrip));
+    slot.dataset.built = '1';
   }
 }
 
@@ -330,6 +329,42 @@ function makeSlider(opt, onCommit, extraClass) {
   knob.addEventListener('pointermove', e => move(e.clientX));
   knob.addEventListener('pointerup', up);
   knob.addEventListener('pointercancel', () => { dragging = false; reset(); });
+  return el;
+}
+
+/* ---------- tap-and-hold control (destructive actions) ---------- */
+function makeHoldButton(label, onCommit) {
+  const HOLD_MS = 1200;
+  const el = document.createElement('div');
+  el.className = 'hold-btn danger';
+  el.innerHTML = `<div class="fill"></div><div class="label">${label}</div>`;
+  const fill = el.querySelector('.fill');
+  let timer = null;
+
+  const start = (e) => {
+    if (timer) return;
+    if (el.setPointerCapture) { try { el.setPointerCapture(e.pointerId); } catch (err) {} }
+    el.classList.add('holding');
+    fill.style.transition = `width ${HOLD_MS}ms linear`;
+    fill.style.width = '100%';
+    timer = setTimeout(() => {
+      timer = null; reset();
+      if (navigator.vibrate) navigator.vibrate(30);
+      onCommit();
+    }, HOLD_MS);
+  };
+  const cancel = () => { if (!timer) return; clearTimeout(timer); timer = null; reset(); };
+  const reset = () => {
+    el.classList.remove('holding');
+    fill.style.transition = 'width .15s ease';
+    fill.style.width = '0';
+  };
+
+  el.addEventListener('pointerdown', start);
+  el.addEventListener('pointerup', cancel);
+  el.addEventListener('pointercancel', cancel);
+  el.addEventListener('pointerleave', cancel);
+  el.addEventListener('contextmenu', e => e.preventDefault()); // suppress long-press menu
   return el;
 }
 
