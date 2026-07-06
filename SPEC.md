@@ -179,8 +179,9 @@ if their endpoint taps are trusted.
 - Log lat/lng/accuracy with each tap when available (audit data, costs nothing).
 - Geolocation requires HTTPS (provided by the existing nginx/domain setup).
 
-**Always reachable during a trip:** Discard trip (soft-delete; slider-guarded, no extra
-confirm dialog), crowding tag (1=seat, 2=stand-OK, 3=sardine; one tap, allowed anytime
+**Always reachable during a trip:** Discard trip (soft-delete; tap-and-hold-guarded —
+press and hold ~1.2s until the fill completes, releasing early cancels; no extra confirm
+dialog), crowding tag (1=seat, 2=stand-OK, 3=sardine; one tap, allowed anytime
 after the first doors_close tap, overwritable), and a "mark anomalous" toggle with an
 optional one-word reason (kept in data, excluded from averages by default — e.g. train
 breakdown: bad timing data, still valid crowding data).

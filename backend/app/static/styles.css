@@ -67,6 +67,17 @@ body{
 .slider.danger .fill{background:linear-gradient(90deg,#5a1f24,#ff5964)}
 .slider.danger .knob{color:var(--danger)}
 
+/* tap-and-hold (destructive actions): press and keep holding until the fill completes */
+.hold-btn{position:relative;height:52px;border-radius:12px;background:var(--track);
+  border:1px solid var(--line);overflow:hidden;touch-action:none;user-select:none;
+  -webkit-user-select:none;flex-shrink:0}
+.hold-btn .fill{position:absolute;inset:0;width:0}
+.hold-btn .label{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-weight:600;font-size:14px;pointer-events:none;padding:0 14px;text-align:center}
+.hold-btn.danger .fill{background:linear-gradient(90deg,#5a1f24,#ff5964)}
+.hold-btn.danger .label{color:var(--danger)}
+.hold-btn.danger.holding .label{color:#fff}
+
 /* undo toast lives in-flow at the top of the board stack: always directly
    above the sliders, never over the area the thumb just used */
 .toast{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:11px 14px;
