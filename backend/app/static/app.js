@@ -250,7 +250,8 @@ function render() {
   const fold = CFG.config.locationFoldSize;
   const main = opts.slice(0, Math.max(fold, opts.length <= fold ? opts.length : fold));
   const rest = opts.slice(main.length);
-  main.forEach(o => board.appendChild(makeSlider(o, () => commitOption(o))));
+  main.forEach((o, i) => board.appendChild(
+    makeSlider(o, () => commitOption(o), i === 0 ? 'best' : null)));
   if (rest.length) {
     moreWrap.hidden = false;
     rest.forEach(o => more.appendChild(makeSlider(o, () => commitOption(o))));

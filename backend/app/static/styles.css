@@ -28,7 +28,9 @@ body{
    upward above it, so nothing ever shifts under the thumb */
 #board{flex:1;min-height:0;display:flex;flex-direction:column-reverse;gap:10px;
   padding:6px 0;overflow-y:auto}
-#options{display:flex;flex-direction:column-reverse;gap:10px}
+/* lift the stack so the best (bottom-most) slider sits in the natural thumb
+   zone rather than flush against the screen edge */
+#options{display:flex;flex-direction:column-reverse;gap:10px;margin-bottom:min(10vh,96px)}
 #more-fold{display:flex;flex-direction:column-reverse;gap:10px}
 #more-options{display:flex;flex-direction:column-reverse;gap:10px}
 
@@ -46,6 +48,10 @@ body{
   box-shadow:0 2px 6px rgba(0,0,0,.4)}
 .slider.optional{opacity:.9}
 .slider.optional .knob{color:var(--dim)}
+/* top-ranked (most probable) option stands out */
+.slider.best{background:#10233c;border-color:var(--accent);
+  box-shadow:0 0 0 1px var(--accent) inset,0 4px 16px rgba(59,160,255,.18)}
+.slider.best .knob{background:var(--accent);border-color:var(--accent);color:#04121f}
 .slider .tag{position:absolute;right:10px;top:8px;font-size:10px;color:var(--dim);
   text-transform:uppercase;letter-spacing:.04em}
 .slider.hinge-main .tag{color:var(--accent)}
