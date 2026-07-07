@@ -200,6 +200,52 @@ def test_stats_excludes_untrusted_bracket():
     assert boarding.get("pinsker", {}).get("count", 0) == 0
 
 
+def test_end_elsewhere_partial_trip():
+    # evening trip that diverges after the hinge (going somewhere else after
+    # work): client ends it via PATCH status=done with a truncated path.
+    trip_id = str(uuid.uuid4())
+    first = _tap("office", 1_000_000, 0)
+    r = client.post(API("/trips"), json={"id": trip_id, "first_tap": first})
+    assert r.status_code == 200, r.text
+    plan = [("street_evening", 1_060_000), ("yehudit_gate_in", 1_240_000),
+            ("yehudit_platform", 1_300_000), ("yehudit_doors_close", 1_420_000)]
+    seq = 1
+    for key, ts in plan:
+        client.post(API(f"/trips/{trip_id}/taps"), json={"taps": [_tap(key, ts, seq)]})
+        seq += 1
+    client.patch(API(f"/trips/{trip_id}"),
+                 json={"status": "done", "completed_at": 1_420_000})
+
+    s = client.get(API("/stats")).json()
+    # office-station bracket (office -> yehudit_doors_close) is intact
+    office = s["panels"]["office"]["evening"]["options"]
+    assert office["yehudit"]["count"] == 1
+    assert office["yehudit"]["mean_ms"] == 420_000
+    # boarding experiment: no boarding tap -> trip contributes nothing
+    assert s["panels"]["boarding"]["evening"]["options"] == {}
+
+    # trip is no longer active; log flags it partial
+    assert client.get(API("/state")).json()["trip"] is None
+    row = next(t for t in client.get(API("/trips")).json()["trips"]
+               if t["id"] == trip_id)
+    assert row["status"] == "done"
+    assert row["partial"] is True
+    assert row["total_ms"] == 420_000
+
+
+def test_full_trip_not_partial():
+    trip_id, first, _ = start_morning()
+    seq, ts = 1, 1_000_000
+    for key in ["pinsker_platform", "pinsker_doors_close", "yehudit_doors_open",
+                "yehudit_gate", "street_morning", "office"]:
+        ts += 60_000
+        client.post(API(f"/trips/{trip_id}/taps"), json={"taps": [_tap(key, ts, seq)]})
+        seq += 1
+    row = next(t for t in client.get(API("/trips")).json()["trips"]
+               if t["id"] == trip_id)
+    assert row["partial"] is False
+
+
 def test_trip_log_and_discard_toggle():
     trip_id, first, _ = start_morning()
     client.patch(API(f"/trips/{trip_id}"), json={"status": "discarded"})

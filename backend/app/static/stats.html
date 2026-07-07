@@ -95,6 +95,7 @@ async function loadLog(){
   for(const tr of trips){
     const flags = [];
     if(tr.status==='discarded') flags.push('<span class="flag disc">discarded</span>');
+    if(tr.partial) flags.push('<span class="flag">partial</span>');
     if(tr.anomalous) flags.push(`<span class="flag anom">anom${tr.anomaly_reason?': '+tr.anomaly_reason:''}</span>`);
     if(tr.untrusted_taps) flags.push(`<span class="flag">${tr.untrusted_taps} untrusted</span>`);
     html += `<tr>

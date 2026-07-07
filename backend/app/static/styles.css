@@ -83,6 +83,9 @@ body{
 .hold-btn.danger .fill{background:linear-gradient(90deg,#5a1f24,#ff5964)}
 .hold-btn.danger .label{color:var(--danger)}
 .hold-btn.danger.holding .label{color:#fff}
+.hold-btn.warn .fill{background:linear-gradient(90deg,#4a3512,#ffb020)}
+.hold-btn.warn .label{color:var(--warn)}
+.hold-btn.warn.holding .label{color:#fff}
 
 /* undo toast lives in-flow at the top of the board stack: always directly
    above the sliders, never over the area the thumb just used */

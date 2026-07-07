@@ -176,6 +176,9 @@ def trip_log(limit: int = 200) -> list[dict]:
             total = None
             if t["completed_at"] and t["started_at"]:
                 total = t["completed_at"] - t["started_at"]
+            # ended-elsewhere trip: done but never reached the terminal tap
+            partial = (t["status"] == "done"
+                       and (not path or path[-1] != graph.terminal(direction)))
             out.append({
                 "id": t["id"],
                 "direction": direction,
@@ -187,6 +190,7 @@ def trip_log(limit: int = 200) -> list[dict]:
                 "total_ms": total,
                 "crowding": t["crowding"],
                 "status": t["status"],
+                "partial": partial,
                 "anomalous": bool(t["anomalous"]),
                 "anomaly_reason": t["anomaly_reason"],
                 "untrusted_taps": sum(1 for tp in taps if not tp["ts_trusted"]),

@@ -50,8 +50,8 @@ function currentOptions() {
   if (!n) return [];
   return n.next.map(k => optDict(k, dirNodes(dir)[k], dir));
 }
-function isTerminal() {
-  return S.trip && currentKey() === terminalOf(S.trip.direction);
+function tripDone() {
+  return !!(S.trip && S.trip.status === 'done');
 }
 
 /* ---------- location ranking (frozen except at defined moments) ---------- */
@@ -150,6 +150,18 @@ function discardTrip() {
   reorder();
 }
 function newTripReset() { S.trip = null; S.taps = []; S.syncedCount = 0; save(); reorder(); }
+function endTripHere() {
+  // Going somewhere other than the usual terminal: complete the trip with a
+  // truncated path. Brackets whose endpoint taps exist still count in stats;
+  // the missing ones are simply skipped (hinge principle).
+  if (!S.trip || S.trip.status !== 'active') return;
+  S.trip.status = 'done';
+  S.trip.completed_at = S.taps[S.taps.length - 1].client_ts;
+  save();
+  hideUndoToast();
+  render();
+  scheduleSync();
+}
 
 /* ---------- network sync (idempotent, best-effort) ---------- */
 function scheduleSync() { if (syncing) { syncQueued = true; return; } sync(); }
@@ -242,10 +254,10 @@ function render() {
   if (S.trip) { badge.textContent = S.trip.direction; badge.className = 'badge ' + S.trip.direction; }
   else { badge.textContent = 'ready'; badge.className = 'badge'; }
   $('current-label').textContent = S.trip
-    ? (isTerminal() ? 'trip complete' : (dirNodes(S.trip.direction)[currentKey()] || {}).display || S.trip.direction)
+    ? (tripDone() ? 'trip complete' : (dirNodes(S.trip.direction)[currentKey()] || {}).display || S.trip.direction)
     : 'choose start';
 
-  if (isTerminal()) { renderDone(); toggleControls(); return; }
+  if (tripDone()) { renderDone(); toggleControls(); return; }
 
   const fold = CFG.config.locationFoldSize;
   const main = opts.slice(0, Math.max(fold, opts.length <= fold ? opts.length : fold));
@@ -263,8 +275,12 @@ function renderDone() {
   const board = $('options'); board.innerHTML = '';
   const div = document.createElement('div');
   div.className = 'done-screen';
-  div.innerHTML = `<h2>✓ ${S.trip.direction} trip logged</h2>
-    <p>${S.taps.length} checkpoints · total ${fmt(S.trip.completed_at - S.trip.started_at)}</p>`;
+  const partial = currentKey() !== terminalOf(S.trip.direction);
+  div.innerHTML = partial
+    ? `<h2>✓ ${S.trip.direction} trip ended elsewhere</h2>
+       <p>${S.taps.length} checkpoints · partial — completed brackets still count</p>`
+    : `<h2>✓ ${S.trip.direction} trip logged</h2>
+       <p>${S.taps.length} checkpoints · total ${fmt(S.trip.completed_at - S.trip.started_at)}</p>`;
   const btn = document.createElement('button');
   btn.className = 'primary-btn'; btn.textContent = 'New trip';
   btn.onclick = newTripReset;
@@ -290,10 +306,15 @@ function toggleControls() {
   $('anomaly-toggle').checked = !!S.trip.anomalous;
   $('anomaly-reason').hidden = !S.trip.anomalous;
   $('anomaly-reason').value = S.trip.anomaly_reason || '';
-  // discard button (hold-guarded, no extra confirm)
+  // discard / end-here buttons (hold-guarded, no extra confirm)
   if (!slot.dataset.built) {
     slot.appendChild(makeHoldButton('Hold to discard trip', discardTrip));
     slot.dataset.built = '1';
+  }
+  const endSlot = $('end-slot');
+  if (!endSlot.dataset.built) {
+    endSlot.appendChild(makeHoldButton('Hold to end trip here', endTripHere, 'warn'));
+    endSlot.dataset.built = '1';
   }
 }
 
@@ -334,10 +355,10 @@ function makeSlider(opt, onCommit, extraClass) {
 }
 
 /* ---------- tap-and-hold control (destructive actions) ---------- */
-function makeHoldButton(label, onCommit) {
+function makeHoldButton(label, onCommit, cls) {
   const HOLD_MS = 1200;
   const el = document.createElement('div');
-  el.className = 'hold-btn danger';
+  el.className = 'hold-btn ' + (cls || 'danger');
   el.innerHTML = `<div class="fill"></div><div class="label">${label}</div>`;
   const fill = el.querySelector('.fill');
   let timer = null;
