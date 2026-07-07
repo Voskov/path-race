@@ -95,6 +95,26 @@ function refreshFix(then) {
     { enableHighAccuracy: true, timeout: 4000, maximumAge: 10000 }
   );
 }
+/* Continuous watch keeps lastFix warm while the app is visible; reorder
+ * moments stay frozen — a pending re-rank fires on the next fix only. */
+let watchId = null, reorderOnFix = false;
+function startWatch() {
+  if (watchId != null || !navigator.geolocation) return;
+  watchId = navigator.geolocation.watchPosition(
+    (pos) => {
+      S.lastFix = { lat: pos.coords.latitude, lng: pos.coords.longitude,
+                    accuracy: pos.coords.accuracy, ts: Date.now() };
+      save();
+      if (reorderOnFix) { reorderOnFix = false; reorder(); }
+    },
+    () => {},
+    { enableHighAccuracy: true }
+  );
+}
+function stopWatch() {
+  if (watchId == null) return;
+  navigator.geolocation.clearWatch(watchId); watchId = null;
+}
 
 /* ---------- committing a tap ---------- */
 function commitOption(opt) {
@@ -116,10 +136,17 @@ function commitOption(opt) {
     S.trip.status = 'done'; S.trip.completed_at = now;
   }
   save();
+  commitFeedback();
   showUndoToast(opt.display);
   reorder();                // advance to the next node's options immediately
-  refreshFix(reorder);      // then re-rank once a fresh GPS fix arrives (may lag)
+  reorderOnFix = true;      // then re-rank once the watch delivers a fresh fix
   scheduleSync();
+}
+function commitFeedback() {
+  if (navigator.vibrate) navigator.vibrate(30);
+  const b = $('board');
+  b.classList.remove('flash'); void b.offsetWidth;   // restart the animation
+  b.classList.add('flash');
 }
 
 function undoLast() {
@@ -150,6 +177,18 @@ function discardTrip() {
   reorder();
 }
 function newTripReset() { S.trip = null; S.taps = []; S.syncedCount = 0; save(); reorder(); }
+/* No real trip lasts 2h. An active trip older than that was abandoned:
+ * close it silently (endTripHere semantics: completed_at = last tap) and
+ * reset to a fresh start screen. Returns true if a trip was expired. */
+const STALE_TRIP_MS = 2 * 3600 * 1000;
+function expireStaleTrip() {
+  if (!S.trip || S.trip.status !== 'active') return false;
+  if (Date.now() - S.trip.started_at < STALE_TRIP_MS) return false;
+  const completed = S.taps.length ? S.taps[S.taps.length - 1].client_ts : S.trip.started_at;
+  patchServer(S.trip.id, { status: 'done', completed_at: completed });
+  S.trip = null; S.taps = []; S.syncedCount = 0; save();
+  return true;
+}
 function endTripHere() {
   // Going somewhere other than the usual terminal: complete the trip with a
   // truncated path. Brackets whose endpoint taps exist still count in stats;
@@ -232,7 +271,9 @@ async function reconcileOnStart() {
                  anomaly_reason: st.trip.anomaly_reason };
       S.taps = st.taps.map(t => ({ id: t.id, checkpoint_key: t.checkpoint_key,
         client_ts: t.client_ts, seq: t.seq, lat: t.lat, lng: t.lng, accuracy: t.accuracy }));
-      S.syncedCount = S.taps.length; save(); reorder();
+      S.syncedCount = S.taps.length; save();
+      expireStaleTrip();     // adopted trip may itself be abandoned
+      reorder();
     } else if (S.trip && S.taps.length) {
       scheduleSync();   // push our local truth
     }
@@ -416,7 +457,13 @@ function wire() {
   window.addEventListener('online', () => { online = true; setNet('online'); scheduleSync(); });
   window.addEventListener('offline', () => { online = false; setNet('offline'); });
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') { refreshFix(reorder); reconcileOnStart(); }
+    if (document.visibilityState === 'visible') {
+      if (expireStaleTrip()) reorder();
+      startWatch(); reorderOnFix = true;
+      reconcileOnStart();
+    } else {
+      stopWatch();           // no GPS drain in the background
+    }
   });
 
   // pull-to-refresh reorder moment. #board is column-reverse: scrollTop is 0
@@ -449,9 +496,10 @@ async function boot() {
 function start() {
   wire();
   setNet(navigator.onLine ? 'online' : 'offline');
+  expireStaleTrip();
   frozenOptions = rankOptions(currentOptions());   // trip start = reorder moment
   render();
-  refreshFix(reorder);
+  startWatch(); reorderOnFix = true;
   reconcileOnStart();
   if ('serviceWorker' in navigator) navigator.serviceWorker.register(`${PREFIX}/sw.js`).catch(() => {});
 }
