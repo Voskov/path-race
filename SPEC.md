@@ -110,7 +110,10 @@ flowchart TD
     YDC -.-> KRDO[kroll_doors_open]
     YDC -.-> DDO[dankner_doors_open]
     YDC -.-> BDO[beilinson_doors_open]
-    SDO -.->|stay on| PDO
+    SDO -.->|stay on| BDO
+    BDO -.-> DDO
+    DDO -.-> KRDO
+    KRDO -.-> PDO
     KDO --> KEX[kiryat_arye_exit]
     SDO --> H2[home]
     PDO --> H2
@@ -119,6 +122,14 @@ flowchart TD
     DDO -.-> H2
     BDO -.-> H2
 ```
+
+Staying on past Shaham, the train continues along the surface stops in reverse
+order: Beilinson → Dankner → Kroll → Pinsker. Each downstream doors_open is both
+a valid alighting (followed by home) and an optional ride-through mark; on top
+of the chain edges drawn above, skip edges exist from every surface doors_open
+to every stop further downstream (e.g. shaham_doors_open → pinsker_doors_open
+directly), so marking intermediate stations is never mandatory. The alighting
+station for the boarding experiment is the last doors_open tapped before home.
 
 The evening Carlebach branch requires a **ride-through tap** at "yehudit_doors_close" while
 riding past — this is the hinge and is mandatory for the trip to count in the station

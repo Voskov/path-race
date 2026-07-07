@@ -120,13 +120,20 @@ EVENING = {
         "kroll_doors_open", "dankner_doors_open", "beilinson_doors_open",
     ], station="yehudit", hinge="main"),
 
-    # Secondary hinge (ride-through / R1 alighting family).
-    "shaham_doors_open": _n("Shaham · doors open", ["pinsker_doors_open", "home"], station="shaham", boarding=True, hinge="secondary"),
+    # Secondary hinge (ride-through / R1 alighting family). Staying on past
+    # Shaham, the train continues Beilinson → Dankner → Kroll → Pinsker; every
+    # downstream stop is a valid alighting AND an optional ride-through mark,
+    # so each node lists all downstream doors_open (skip edges keep marking
+    # optional) plus home. Alighting station = last doors_open before home.
+    "shaham_doors_open": _n("Shaham · doors open", [
+        "pinsker_doors_open", "home",
+        "beilinson_doors_open", "dankner_doors_open", "kroll_doors_open",
+    ], station="shaham", boarding=True, hinge="secondary"),
 
+    "beilinson_doors_open": _n("Beilinson · doors open", ["home", "dankner_doors_open", "kroll_doors_open", "pinsker_doors_open"], station="beilinson", boarding=True, optional=True),
+    "dankner_doors_open":   _n("Dankner · doors open",   ["home", "kroll_doors_open", "pinsker_doors_open"], station="dankner", boarding=True, optional=True),
+    "kroll_doors_open":     _n("Kroll · doors open",     ["home", "pinsker_doors_open"], station="kroll", boarding=True, optional=True),
     "pinsker_doors_open":   _n("Pinsker · doors open",   ["home"], station="pinsker",   boarding=True),
-    "kroll_doors_open":     _n("Kroll · doors open",     ["home"], station="kroll",     boarding=True, optional=True),
-    "dankner_doors_open":   _n("Dankner · doors open",   ["home"], station="dankner",   boarding=True, optional=True),
-    "beilinson_doors_open": _n("Beilinson · doors open", ["home"], station="beilinson", boarding=True, optional=True),
 
     "kiryat_arye_doors_open": _n("Kiryat Arye · doors open", ["kiryat_arye_exit"], station="kiryat_arye", boarding=True),
     "kiryat_arye_exit":       _n("Kiryat Arye · exit",       ["home"],             station="kiryat_arye"),

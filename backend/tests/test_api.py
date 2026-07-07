@@ -246,6 +246,41 @@ def test_full_trip_not_partial():
     assert row["partial"] is False
 
 
+def test_evening_ride_through_past_shaham():
+    # stay on past Shaham: every downstream surface stop is offered, marking
+    # intermediates is optional, and alighting = last doors_open before home
+    trip_id = str(uuid.uuid4())
+    first = _tap("office", 1_000_000, 0)
+    r = client.post(API("/trips"), json={"id": trip_id, "first_tap": first})
+    assert r.status_code == 200, r.text
+    plan = [("street_evening", 1_060_000), ("yehudit_gate_in", 1_240_000),
+            ("yehudit_platform", 1_300_000), ("yehudit_doors_close", 1_420_000),
+            ("shaham_doors_open", 1_900_000)]
+    seq = 1
+    for key, ts in plan:
+        r = client.post(API(f"/trips/{trip_id}/taps"), json={"taps": [_tap(key, ts, seq)]})
+        seq += 1
+    keys = {o["key"] for o in r.json()["options"]}
+    assert keys == {"pinsker_doors_open", "home", "beilinson_doors_open",
+                    "dankner_doors_open", "kroll_doors_open"}
+
+    # mark Beilinson, skip Dankner, get off at Kroll
+    for key, ts in [("beilinson_doors_open", 2_000_000),
+                    ("kroll_doors_open", 2_200_000),
+                    ("home", 2_620_000)]:
+        client.post(API(f"/trips/{trip_id}/taps"), json={"taps": [_tap(key, ts, seq)]})
+        seq += 1
+
+    s = client.get(API("/stats")).json()
+    boarding = s["panels"]["boarding"]["evening"]["options"]
+    assert set(boarding) == {"kroll"}  # not shaham/beilinson: last doors_open wins
+    # bracket yehudit_doors_close(1_420_000) -> home(2_620_000)
+    assert boarding["kroll"]["mean_ms"] == 1_200_000
+    segs = {(x["from"], x["to"]): x["mean_ms"] for x in boarding["kroll"]["segments"]}
+    assert segs[("shaham_doors_open", "beilinson_doors_open")] == 100_000
+    assert segs[("beilinson_doors_open", "kroll_doors_open")] == 200_000
+
+
 def test_trip_log_and_discard_toggle():
     trip_id, first, _ = start_morning()
     client.patch(API(f"/trips/{trip_id}"), json={"status": "discarded"})
