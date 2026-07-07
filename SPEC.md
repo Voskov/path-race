@@ -201,7 +201,7 @@ Per experiment × direction (4 panels), computed over status=done, non-anomalous
 (toggle to include anomalous):
 - Per option: trip count, mean and median bracket total, avg crowding.
 - Time-of-day split: same metrics grouped by departure-time window (configurable
-  boundaries, default: before/after 08:30 for morning, before/after 18:00 for evening) —
+  boundaries, default: before/after 08:30 for morning, before/after 12:00 for evening) —
   the same option at different hours is a different animal, in both time and crowding.
 - Segment breakdown table per option (consecutive trusted-tap deltas, matched by
   checkpoint key — options have different checkpoint sets, so never match by position).

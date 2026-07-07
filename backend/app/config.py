@@ -27,7 +27,7 @@ class Settings:
 
     # Stats — time-of-day split boundaries (local wall-clock, HH:MM)
     TOD_MORNING_BOUNDARY = os.environ.get("TOD_MORNING_BOUNDARY", "08:30")
-    TOD_EVENING_BOUNDARY = os.environ.get("TOD_EVENING_BOUNDARY", "18:00")
+    TOD_EVENING_BOUNDARY = os.environ.get("TOD_EVENING_BOUNDARY", "12:00")
 
     @property
     def prefix(self) -> str:

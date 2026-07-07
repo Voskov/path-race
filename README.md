@@ -96,7 +96,7 @@ HTTPS is required for geolocation and for the PWA/service worker to install.
 | `LOCATION_STALE_MS` | `30000` | Older fix ⇒ location filter off |
 | `LOCATION_FOLD_SIZE` | `3` | Options kept above the "more…" fold |
 | `TOD_MORNING_BOUNDARY` | `08:30` | Morning time-of-day split (Asia/Jerusalem) |
-| `TOD_EVENING_BOUNDARY` | `18:00` | Evening time-of-day split (Asia/Jerusalem) |
+| `TOD_EVENING_BOUNDARY` | `12:00` | Evening time-of-day split (Asia/Jerusalem) |
 
 ## API
 
