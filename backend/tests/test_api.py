@@ -93,7 +93,7 @@ def test_terminal_autocompletes():
     seq = 1
     ts = 1_000_000
     for key in ["pinsker_platform", "pinsker_doors_close", "yehudit_doors_open",
-                "yehudit_gate", "street_morning", "office"]:
+                "yehudit_gate", "yehudit_street", "office"]:
         ts += 60_000
         client.post(API(f"/trips/{trip_id}/taps"),
                     json={"taps": [_tap(key, ts, seq)]})
@@ -137,7 +137,7 @@ def test_stats_bracket_and_inference():
     # full valid trip, bracket counts, home->doors_close stays an unsplit segment
     trip_id, first, _ = start_morning(1_000_000)
     plan = [("pinsker_doors_close", 1_060_000), ("yehudit_doors_open", 1_600_000),
-            ("yehudit_gate", 1_660_000), ("street_morning", 1_720_000),
+            ("yehudit_gate", 1_660_000), ("yehudit_street", 1_720_000),
             ("office", 1_900_000)]
     seq = 1
     for key, ts in plan:
@@ -166,7 +166,7 @@ def test_stats_scoot_wait_ride_split():
             ("pinsker_doors_close", 1_420_000),   # wait 120s
             ("yehudit_doors_open", 1_900_000),    # ride 480s
             ("yehudit_gate", 1_960_000),
-            ("street_morning", 2_020_000),
+            ("yehudit_street", 2_020_000),
             ("office", 2_200_000)]
     seq = 1
     for key, ts in plan:
@@ -192,7 +192,7 @@ def test_stats_excludes_untrusted_bracket():
     for key, ts in plan:
         client.post(API(f"/trips/{trip_id}/taps"), json={"taps": [_tap(key, ts, seq)]})
         seq += 1
-    for key, ts in [("street_morning", 1_720_000), ("office", 1_900_000)]:
+    for key, ts in [("yehudit_street", 1_720_000), ("office", 1_900_000)]:
         client.post(API(f"/trips/{trip_id}/taps"), json={"taps": [_tap(key, ts, seq)]}); seq += 1
     s = client.get(API("/stats")).json()
     boarding = s["panels"]["boarding"]["morning"]["options"]
@@ -237,7 +237,7 @@ def test_full_trip_not_partial():
     trip_id, first, _ = start_morning()
     seq, ts = 1, 1_000_000
     for key in ["pinsker_platform", "pinsker_doors_close", "yehudit_doors_open",
-                "yehudit_gate", "street_morning", "office"]:
+                "yehudit_gate", "yehudit_street", "office"]:
         ts += 60_000
         client.post(API(f"/trips/{trip_id}/taps"), json={"taps": [_tap(key, ts, seq)]})
         seq += 1
@@ -253,7 +253,7 @@ def _done_trip(t0=1_000_000):
     trip_id, first, _ = start_morning(t0)
     seq, ts = 1, t0
     for key in ["pinsker_platform", "pinsker_doors_close", "yehudit_doors_open",
-                "yehudit_gate", "street_morning", "office"]:
+                "yehudit_gate", "yehudit_street", "office"]:
         ts += 60_000
         client.post(API(f"/trips/{trip_id}/taps"), json={"taps": [_tap(key, ts, seq)]})
         seq += 1

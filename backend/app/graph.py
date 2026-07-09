@@ -33,7 +33,8 @@ _C = {
     "kiryat_arye":     (32.105930, 34.861897),  # (real)
     "yehudit":         (32.070168, 34.788406),  # (real)
     "carlebach":       (32.065273, 34.782825),  # (real)
-    "street_morning":  (32.0620, 34.7880),   # (est)
+    "yehudit_street":   (32.070168, 34.788406),  # (est) street exit above Yehudit
+    "carlebach_street": (32.065273, 34.782825),  # (est) street exit above Carlebach
     "street_evening":  (32.0600, 34.7900),   # (est)
 }
 
@@ -89,13 +90,15 @@ MORNING = {
     # Main hinge — every morning trip passes it.
     "yehudit_doors_open": _n("Yehudit · doors open", ["yehudit_gate", "carlebach_doors_open"], station="yehudit", hinge="main"),
 
-    # Office-station choice.
-    "yehudit_gate":         _n("Yehudit · exit gate",  ["street_morning"], station="yehudit",   office="yehudit"),
+    # Office-station choice. Each station has its own street node — the
+    # platform→street climb and the street exit location differ per station.
+    "yehudit_gate":         _n("Yehudit · exit gate",  ["yehudit_street"], station="yehudit",   office="yehudit"),
     "carlebach_doors_open": _n("Carlebach · doors open", ["carlebach_gate"], station="carlebach", office="carlebach"),
-    "carlebach_gate":       _n("Carlebach · exit gate", ["street_morning"], station="carlebach", office="carlebach"),
+    "carlebach_gate":       _n("Carlebach · exit gate", ["carlebach_street"], station="carlebach", office="carlebach"),
 
-    "street_morning": _n("Street (scoot to office)", ["office"], station="street_morning"),
-    "office":         _n("Office", [], station="office"),  # terminal
+    "yehudit_street":   _n("Yehudit · street (scoot to office)",   ["office"], station="yehudit_street",   office="yehudit"),
+    "carlebach_street": _n("Carlebach · street (scoot to office)", ["office"], station="carlebach_street", office="carlebach"),
+    "office":           _n("Office", [], station="office"),  # terminal
 }
 
 

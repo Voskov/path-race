@@ -77,10 +77,11 @@ flowchart TD
     KDC --> YDO
     YDO --> YG[yehudit_gate]
     YDO --> CDO[carlebach_doors_open]
-    YG --> ST_M[street_morning]
+    YG --> YST[yehudit_street]
     CDO --> CG[carlebach_gate]
-    CG --> ST_M
-    ST_M --> OF[office]
+    CG --> CST[carlebach_street]
+    YST --> OF[office]
+    CST --> OF
 ```
 
 Note: from a node like pinsker_doors_close the next valid taps are BOTH
