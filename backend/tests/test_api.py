@@ -246,6 +246,121 @@ def test_full_trip_not_partial():
     assert row["partial"] is False
 
 
+# ---- trip editor (desktop corrections) --------------------------------------
+
+def _done_trip(t0=1_000_000):
+    """Complete a full morning trip; returns (trip_id, {key: tap})."""
+    trip_id, first, _ = start_morning(t0)
+    seq, ts = 1, t0
+    for key in ["pinsker_platform", "pinsker_doors_close", "yehudit_doors_open",
+                "yehudit_gate", "street_morning", "office"]:
+        ts += 60_000
+        client.post(API(f"/trips/{trip_id}/taps"), json={"taps": [_tap(key, ts, seq)]})
+        seq += 1
+    taps = {t["checkpoint_key"]: t
+            for t in client.get(API(f"/trips/{trip_id}")).json()["taps"]}
+    return trip_id, taps
+
+
+def test_trip_detail():
+    trip_id, taps = _done_trip()
+    r = client.get(API(f"/trips/{trip_id}"))
+    assert r.status_code == 200
+    body = r.json()
+    assert body["trip"]["id"] == trip_id and body["trip"]["status"] == "done"
+    assert [t["checkpoint_key"] for t in body["taps"]][0] == "home"
+    assert client.get(API("/trips/nope")).status_code == 404
+
+
+def test_edit_retimes_and_rederives_bookkeeping():
+    trip_id, taps = _done_trip(1_000_000)
+    # first tap -60s, terminal tap -20s
+    r = client.post(API(f"/trips/{trip_id}/edit"), json={"taps": [
+        {"id": taps["home"]["id"], "client_ts": 1_000_000 - 60_000},
+        {"id": taps["office"]["id"], "client_ts": taps["office"]["client_ts"] - 20_000},
+    ]})
+    assert r.status_code == 200, r.text
+    trip = db.get_trip(trip_id)
+    assert trip["started_at"] == 940_000
+    assert trip["completed_at"] == taps["office"]["client_ts"] - 20_000
+    # stats bracket follows the edited hinge endpoints
+    s = client.get(API("/stats")).json()
+    boarding = s["panels"]["boarding"]["morning"]["options"]["pinsker"]
+    assert boarding["mean_ms"] == (taps["yehudit_doors_open"]["client_ts"] - 940_000)
+
+
+def test_edit_restores_trust():
+    trip_id, first, _ = start_morning()
+    # rapid double-tap: platform untrusted (2s < 3s threshold)
+    client.post(API(f"/trips/{trip_id}/taps"), json={"taps": [
+        _tap("pinsker_platform", 1_300_000, 1),
+        _tap("pinsker_doors_close", 1_302_000, 2),
+    ]})
+    client.patch(API(f"/trips/{trip_id}"), json={"status": "done", "completed_at": 1_302_000})
+    taps = {t["checkpoint_key"]: t
+            for t in client.get(API(f"/trips/{trip_id}")).json()["taps"]}
+    assert taps["pinsker_platform"]["ts_trusted"] is False
+    # fix the platform tap's real time -> spacing is honest again -> trusted
+    r = client.post(API(f"/trips/{trip_id}/edit"), json={"taps": [
+        {"id": taps["pinsker_platform"]["id"], "client_ts": 1_290_000},
+    ]})
+    taps = {t["checkpoint_key"]: t for t in r.json()["taps"]}
+    assert taps["pinsker_platform"]["ts_trusted"] is True
+
+
+def test_edit_deletes_tap():
+    trip_id, taps = _done_trip()
+    r = client.post(API(f"/trips/{trip_id}/edit"),
+                    json={"taps": [{"id": taps["yehudit_gate"]["id"], "delete": True}]})
+    keys = [t["checkpoint_key"] for t in r.json()["taps"]]
+    assert "yehudit_gate" not in keys and len(keys) == 6
+
+
+def test_edit_metadata_and_reason_clear():
+    trip_id, _ = _done_trip()
+    r = client.post(API(f"/trips/{trip_id}/edit"),
+                    json={"crowding": 3, "anomalous": True, "anomaly_reason": "breakdown"})
+    assert r.json()["trip"]["crowding"] == 3
+    assert r.json()["trip"]["anomalous"] is True
+    r = client.post(API(f"/trips/{trip_id}/edit"),
+                    json={"anomalous": False, "anomaly_reason": ""})
+    assert r.json()["trip"]["anomalous"] is False
+    assert r.json()["trip"]["anomaly_reason"] is None
+
+
+def test_edit_rejections():
+    # active trip: hands off
+    trip_id, first, _ = start_morning()
+    assert client.post(API(f"/trips/{trip_id}/edit"), json={}).status_code == 409
+    assert client.post(API("/trips/nope/edit"), json={}).status_code == 404
+    client.patch(API(f"/trips/{trip_id}"), json={"status": "discarded"})
+    taps = client.get(API(f"/trips/{trip_id}")).json()["taps"]
+    # foreign tap id
+    r = client.post(API(f"/trips/{trip_id}/edit"),
+                    json={"taps": [{"id": "not-a-tap", "client_ts": 1}]})
+    assert r.status_code == 400
+    # deleting every tap
+    r = client.post(API(f"/trips/{trip_id}/edit"),
+                    json={"taps": [{"id": taps[0]["id"], "delete": True}]})
+    assert r.status_code == 400
+
+
+def test_edit_rejects_out_of_order_timestamps():
+    trip_id, taps = _done_trip(1_000_000)
+    before = {t["checkpoint_key"]: t["client_ts"]
+              for t in client.get(API(f"/trips/{trip_id}")).json()["taps"]}
+    # push yehudit_doors_open past the gate tap that follows it
+    r = client.post(API(f"/trips/{trip_id}/edit"), json={"taps": [
+        {"id": taps["yehudit_doors_open"]["id"],
+         "client_ts": taps["yehudit_gate"]["client_ts"] + 1},
+    ]})
+    assert r.status_code == 400
+    # rejected atomically — nothing changed
+    after = {t["checkpoint_key"]: t["client_ts"]
+             for t in client.get(API(f"/trips/{trip_id}")).json()["taps"]}
+    assert after == before
+
+
 def test_trip_log_and_discard_toggle():
     trip_id, first, _ = start_morning()
     client.patch(API(f"/trips/{trip_id}"), json={"status": "discarded"})

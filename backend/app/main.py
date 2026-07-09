@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 
 from . import db, graph, stats
 from .config import settings
-from .schemas import CreateTripIn, PatchTripIn, TapsBatchIn
+from .schemas import CreateTripIn, PatchTripIn, TapsBatchIn, TripEditIn
 
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 
@@ -39,6 +39,15 @@ def _trip_dict(trip) -> dict:
     }
 
 
+def _tap_dict(t) -> dict:
+    return {
+        "id": t["id"], "checkpoint_key": t["checkpoint_key"],
+        "client_ts": t["client_ts"], "seq": t["seq"],
+        "ts_trusted": bool(t["ts_trusted"]),
+        "lat": t["lat"], "lng": t["lng"], "accuracy": t["accuracy"],
+    }
+
+
 def _state_for(trip) -> dict:
     """Active trip + its taps + the options for the current node (for reconcile
     and cold-reload restore)."""
@@ -56,15 +65,7 @@ def _state_for(trip) -> dict:
     is_terminal = current_key == terminal
     return {
         "trip": _trip_dict(trip),
-        "taps": [
-            {
-                "id": t["id"], "checkpoint_key": t["checkpoint_key"],
-                "client_ts": t["client_ts"], "seq": t["seq"],
-                "ts_trusted": bool(t["ts_trusted"]),
-                "lat": t["lat"], "lng": t["lng"], "accuracy": t["accuracy"],
-            }
-            for t in taps
-        ],
+        "taps": [_tap_dict(t) for t in taps],
         "current_key": current_key,
         "is_terminal": is_terminal,
         "options": [] if is_terminal else graph.options_for(direction, current_key),
@@ -168,6 +169,38 @@ def get_stats(include_anomalous: bool = Query(False)):
 @api.get("/trips")
 def list_trips(limit: int = Query(200, ge=1, le=1000)):
     return {"trips": stats.trip_log(limit)}
+
+
+@api.get("/trips/{trip_id}")
+def trip_detail(trip_id: str):
+    trip = db.get_trip(trip_id)
+    if not trip:
+        raise HTTPException(404, "unknown trip")
+    return {
+        "trip": _trip_dict(trip),
+        "taps": [_tap_dict(t) for t in db.get_taps(trip_id)],
+    }
+
+
+@api.post("/trips/{trip_id}/edit")
+def edit_trip(trip_id: str, body: TripEditIn):
+    trip = db.get_trip(trip_id)
+    if not trip:
+        raise HTTPException(404, "unknown trip")
+    if trip["status"] == "active":
+        # the phone owns the active trip (offline queue) — desktop edits would race it
+        raise HTTPException(409, "trip is still active — complete or discard it first")
+    fields = body.model_dump(exclude={"taps"}, exclude_none=True)
+    if "anomalous" in fields:
+        fields["anomalous"] = 1 if fields["anomalous"] else 0
+    if fields.get("anomaly_reason") == "":
+        fields["anomaly_reason"] = None
+    try:
+        db.apply_trip_edits(trip_id, fields, [t.model_dump() for t in body.taps],
+                            settings.DOUBLE_TAP_THRESHOLD_S * 1000)
+    except db.EditError as e:
+        raise HTTPException(400, str(e))
+    return trip_detail(trip_id)
 
 
 app.include_router(api)
