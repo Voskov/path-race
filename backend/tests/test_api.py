@@ -361,6 +361,53 @@ def test_edit_rejects_out_of_order_timestamps():
     assert after == before
 
 
+# ---- raw export -------------------------------------------------------------
+
+def test_export_json_is_complete_and_unfiltered():
+    # a normal done trip, a discarded one, and a rapid-double-tap (untrusted)
+    done_id, _ = _done_trip(1_000_000)
+    disc_id, _, _ = start_morning(5_000_000)
+    client.patch(API(f"/trips/{disc_id}"), json={"status": "discarded"})
+    dbl_id, _, _ = start_morning(9_000_000)
+    client.post(API(f"/trips/{dbl_id}/taps"), json={"taps": [
+        _tap("pinsker_platform", 9_300_000, 1),
+        _tap("pinsker_doors_close", 9_302_000, 2),  # 2s -> earlier untrusted
+    ]})
+
+    body = client.get(API("/export.json")).json()
+    assert body["tz"] == "Asia/Jerusalem"
+    trips = {t["id"]: t for t in body["trips"]}
+    # nothing filtered: done AND discarded trips both present
+    assert done_id in trips and disc_id in trips and dbl_id in trips
+    assert body["trip_count"] == 3
+    # oldest-first ordering by started_at
+    assert [t["id"] for t in body["trips"]] == [done_id, disc_id, dbl_id]
+    # taps nested under their trip, untrusted tap preserved (not dropped)
+    dbl_taps = {t["checkpoint_key"]: t for t in trips[dbl_id]["taps"]}
+    assert dbl_taps["pinsker_platform"]["ts_trusted"] is False
+    # local ISO strings sit alongside raw ms
+    assert trips[done_id]["started_at_local"].startswith("1970-01-01")
+    assert dbl_taps["pinsker_platform"]["client_ts"] == 9_300_000
+    # download filename hint
+    cd = client.get(API("/export.json")).headers["content-disposition"]
+    assert cd.startswith("attachment") and cd.endswith('.json"')
+
+
+def test_export_csv_row_per_tap():
+    trip_id, _ = _done_trip(1_000_000)
+    r = client.get(API("/export.csv"))
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("text/csv")
+    import csv as _csv
+    import io as _io
+    rows = list(_csv.DictReader(_io.StringIO(r.text)))
+    mine = [row for row in rows if row["trip_id"] == trip_id]
+    assert len(mine) == 7  # home + 6 taps, one row each
+    assert mine[0]["checkpoint_key"] == "home"
+    assert mine[0]["direction"] == "morning"
+    assert mine[0]["client_ts"] == "1000000"
+
+
 def test_trip_log_and_discard_toggle():
     trip_id, first, _ = start_morning()
     client.patch(API(f"/trips/{trip_id}"), json={"status": "discarded"})

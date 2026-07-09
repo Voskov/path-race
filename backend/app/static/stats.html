@@ -46,6 +46,8 @@ button.commit{background:var(--accent);border:none;color:#04121f;font-weight:700
   <div class="toolbar">
     <a href=".">← logger</a>
     <label><input type="checkbox" id="incl-anom"> include anomalous</label>
+    <a id="dl-json" download>⭳ JSON</a>
+    <a id="dl-csv" download>⭳ CSV</a>
     <span class="muted" id="meta"></span>
   </div>
 
@@ -58,6 +60,8 @@ button.commit{background:var(--accent);border:none;color:#04121f;font-weight:700
 <script>
 const PREFIX = location.pathname.replace(/\/stats\/?$/, '');
 const API = p => `${PREFIX}/api${p}`;
+document.getElementById('dl-json').href = API('/export.json');
+document.getElementById('dl-csv').href = API('/export.csv');
 const fmt = ms => ms==null ? '—' : `${(Math.round(ms/1000)/60|0)}m ${Math.round(ms/1000)%60}s`;
 const EXPS = [['boarding','morning'],['boarding','evening'],['office','morning'],['office','evening']];
 const TITLES = {boarding:'Boarding option',office:'Office station'};
