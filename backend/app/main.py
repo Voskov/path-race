@@ -4,10 +4,10 @@ import os
 from contextlib import asynccontextmanager
 
 from fastapi import APIRouter, FastAPI, HTTPException, Query
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from . import db, graph, stats
+from . import db, export, graph, stats
 from .config import settings
 from .schemas import CreateTripIn, PatchTripIn, TapsBatchIn, TripEditIn
 
@@ -164,6 +164,21 @@ def patch_trip(trip_id: str, body: PatchTripIn):
 @api.get("/stats")
 def get_stats(include_anomalous: bool = Query(False)):
     return stats.compute(include_anomalous)
+
+
+@api.get("/export.json")
+def export_json():
+    # full raw snapshot (all statuses, untrusted taps, debug fields) — the
+    # data source for offline analysis. Served as a download.
+    return JSONResponse(export.bundle(), headers={
+        "Content-Disposition": f'attachment; filename="{export.filename("json")}"'})
+
+
+@api.get("/export.csv")
+def export_csv():
+    return Response(export.csv_text(), media_type="text/csv; charset=utf-8",
+                    headers={"Content-Disposition":
+                             f'attachment; filename="{export.filename("csv")}"'})
 
 
 @api.get("/trips")
