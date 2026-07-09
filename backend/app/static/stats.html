@@ -28,6 +28,17 @@ th:first-child,td:first-child{text-align:left}
 button.mini{background:transparent;border:1px solid var(--line);color:var(--dim);border-radius:6px;
   padding:3px 8px;font-size:12px;cursor:pointer}
 .muted{color:var(--dim)}
+tr.editor td{background:#0d111b;text-align:left;padding:12px}
+.etap{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:5px 0;border-bottom:1px dashed var(--line)}
+.etap .ekey{flex:0 0 210px;font-weight:600;font-size:12.5px}
+.etap.deleted .ekey,.etap.deleted input{text-decoration:line-through;opacity:.45}
+.etap input[type=datetime-local],.efields select,.efields input[type=text]{
+  background:#0b0e14;color:var(--text);border:1px solid var(--line);border-radius:6px;
+  padding:3px 6px;font-size:12.5px;color-scheme:dark}
+.etap .delta{min-width:56px;color:var(--warn);font-size:12px}
+.efields{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin:12px 0 0}
+button.commit{background:var(--accent);border:none;color:#04121f;font-weight:700;
+  border-radius:8px;padding:6px 14px;cursor:pointer}
 </style>
 
 <div class="wrap">
@@ -89,6 +100,7 @@ function renderPanel(exp,dir,panel){
 }
 
 async function loadLog(){
+  closeEditor();  // the table is about to be rebuilt under it
   const {trips} = await (await fetch(API('/trips?limit=300'))).json();
   const t = document.getElementById('log');
   let html = `<tr><th>Date</th><th>Dir</th><th>Board</th><th>Office</th><th>Total</th><th>Crowd</th><th>Flags</th><th></th></tr>`;
@@ -109,10 +121,114 @@ async function loadLog(){
       <td>
         <button class="mini" data-id="${tr.id}" data-act="disc">${tr.status==='discarded'?'undiscard':'discard'}</button>
         <button class="mini" data-id="${tr.id}" data-act="anom">${tr.anomalous?'un-anom':'anom'}</button>
+        ${tr.status!=='active'?`<button class="mini" data-id="${tr.id}" data-act="edit">edit</button>`:''}
       </td></tr>`;
   }
   t.innerHTML = html;
-  t.querySelectorAll('button.mini').forEach(b => b.onclick = () => toggle(b.dataset.id, b.dataset.act, trips));
+  t.querySelectorAll('button.mini').forEach(b => b.onclick = () =>
+    b.dataset.act==='edit' ? toggleEditor(b.dataset.id, b.closest('tr'))
+                           : toggle(b.dataset.id, b.dataset.act, trips));
+}
+
+/* ---- inline trip editor ---------------------------------------------------
+ * Expand a log row into an editor: retime taps (nudge buttons or the field),
+ * delete a bogus tap, set crowding/anomalous/reason/status. One Commit sends
+ * everything atomically; the server re-derives started_at/completed_at and
+ * recomputes ts_trusted, so retiming an untrusted tap is what restores it. */
+let ED = null;
+const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+const tsToLocal = ms => { const d=new Date(ms), p=n=>String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`; };
+const fmtDelta = d => { if(!d) return ''; const s=Math.round(Math.abs(d)/1000);
+  return (d<0?'−':'+') + (s>=60 ? `${(s/60)|0}m ${s%60}s` : `${s}s`); };
+
+function closeEditor(){ if(ED){ ED.row.remove(); ED=null; } }
+
+async function toggleEditor(id, rowEl){
+  if(ED && ED.id===id){ closeEditor(); return; }
+  closeEditor();
+  const d = await (await fetch(API(`/trips/${id}`))).json();
+  ED = {
+    id, trip: d.trip,
+    taps: d.taps.map(t=>({id:t.id, key:t.checkpoint_key, ts0:t.client_ts,
+                          ts:t.client_ts, trusted:t.ts_trusted, del:false})),
+    row: document.createElement('tr'),
+  };
+  ED.row.className='editor';
+  ED.row.innerHTML = `<td colspan="8">${renderEditor()}</td>`;
+  rowEl.after(ED.row);
+  wireEditor();
+}
+
+function renderEditor(){
+  const rows = ED.taps.map((t,i)=>`
+    <div class="etap${t.del?' deleted':''}" data-i="${i}">
+      <span class="ekey">${t.key}${t.trusted?'':' <span class="flag anom">untrusted</span>'}</span>
+      <input type="datetime-local" step="1" value="${tsToLocal(t.ts)}">
+      <span class="delta">${fmtDelta(t.ts-t.ts0)}</span>
+      ${[-60,-10,-1,1,10,60].map(d=>`<button class="mini nudge" data-d="${d}">${d<0?'−':'+'}${Math.abs(d)}s</button>`).join('')}
+      <button class="mini edel">${t.del?'restore':'delete'}</button>
+    </div>`).join('');
+  const tr = ED.trip;
+  return `
+    <div>${rows}</div>
+    <div class="efields">
+      <label>status <select id="e-status">
+        <option value="done"${tr.status==='done'?' selected':''}>done</option>
+        <option value="discarded"${tr.status==='discarded'?' selected':''}>discarded</option>
+      </select></label>
+      <label>crowding <select id="e-crowd">
+        <option value="">—</option>
+        ${[1,2,3].map(c=>`<option value="${c}"${tr.crowding===c?' selected':''}>${c}</option>`).join('')}
+      </select></label>
+      <label><input type="checkbox" id="e-anom"${tr.anomalous?' checked':''}> anomalous</label>
+      <label>reason <input type="text" id="e-reason" value="${esc(tr.anomaly_reason||'')}" placeholder="one word"></label>
+    </div>
+    <div class="efields">
+      <button class="commit" id="e-commit">Commit changes</button>
+      <button class="mini" id="e-cancel">Cancel</button>
+      <span class="muted">Times are local. Untouched taps keep their exact stored timestamps.</span>
+    </div>`;
+}
+
+function wireEditor(){
+  ED.row.querySelectorAll('.etap').forEach(el=>{
+    const t = ED.taps[Number(el.dataset.i)];
+    const input = el.querySelector('input[type=datetime-local]');
+    const delta = el.querySelector('.delta');
+    const sync = ()=>{ input.value=tsToLocal(t.ts); delta.textContent=fmtDelta(t.ts-t.ts0); };
+    input.onchange = ()=>{ const ms=new Date(input.value).getTime(); if(!isNaN(ms)) t.ts=ms; sync(); };
+    el.querySelectorAll('.nudge').forEach(b=>b.onclick=()=>{ t.ts+=Number(b.dataset.d)*1000; sync(); });
+    el.querySelector('.edel').onclick = ev=>{
+      t.del=!t.del; el.classList.toggle('deleted',t.del);
+      ev.target.textContent=t.del?'restore':'delete';
+    };
+  });
+  ED.row.querySelector('#e-commit').onclick = commitEditor;
+  ED.row.querySelector('#e-cancel').onclick = closeEditor;
+}
+
+async function commitEditor(){
+  const body = {taps: []};
+  for(const t of ED.taps){
+    if(t.del) body.taps.push({id:t.id, delete:true});
+    else if(t.ts!==t.ts0) body.taps.push({id:t.id, client_ts:t.ts});
+  }
+  const q = s=>ED.row.querySelector(s);
+  const status=q('#e-status').value, crowd=q('#e-crowd').value,
+        anom=q('#e-anom').checked, reason=q('#e-reason').value.trim();
+  if(status!==ED.trip.status) body.status=status;
+  if(crowd && Number(crowd)!==ED.trip.crowding) body.crowding=Number(crowd);
+  if(anom!==ED.trip.anomalous) body.anomalous=anom;
+  if(reason!==(ED.trip.anomaly_reason||'')) body.anomaly_reason=reason;
+  const r = await fetch(API(`/trips/${ED.id}/edit`),
+    {method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+  if(!r.ok){
+    const e = await r.json().catch(()=>({}));
+    alert(`Edit rejected: ${typeof e.detail==='string'?e.detail:r.status}`);
+    return;
+  }
+  closeEditor(); refresh();
 }
 async function toggle(id, act, trips){
   const tr = trips.find(x=>x.id===id);

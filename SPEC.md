@@ -207,8 +207,16 @@ Per experiment × direction (4 panels), computed over status=done, non-anomalous
   checkpoint key — options have different checkpoint sets, so never match by position).
   Segments are diagnosis; visually subordinate to the bracket totals.
 - A simple trip log (date, path taken, total, crowding, flags) with the ability to
-  discard/undiscard and toggle anomalous from the desktop. No field editing of
-  timestamps is required.
+  discard/undiscard and toggle anomalous from the desktop.
+- Each non-active trip in the log expands into an inline editor (the desktop
+  correction workflow): retime taps (±1s/±10s/±60s nudge buttons or a datetime
+  field), delete a bogus tap, and set crowding / anomalous / reason / status.
+  A single Commit applies everything atomically; the server re-derives
+  started_at/completed_at from the surviving taps, rejects edits that break
+  path order, and recomputes ts_trusted — fixing an untrusted tap's real time
+  is what restores its trust. Active trips are not editable (the phone owns
+  them); path repair (adding/re-keying checkpoints) is out of scope — a broken
+  path is discarded.
 
 Keep it server-rendered-simple or a static page hitting JSON endpoints — whatever is
 simplest to maintain. No charting library needed unless trivial to add.
@@ -223,6 +231,8 @@ PATCH /api/trips/{id}              -> crowding, status, anomalous, complete
 GET  /api/state                    -> active trip + taps (for reconcile)
 GET  /api/stats                    -> everything the stats page needs
 GET  /api/trips?...                -> trip log
+GET  /api/trips/{id}               -> full trip detail (for the editor)
+POST /api/trips/{id}/edit          -> atomic commit of desktop edits
 ```
 
 Exact shape is the implementer's choice; requirements are idempotency, batch tap sync,
@@ -241,8 +251,9 @@ and a single reconcile endpoint.
 ## 7. Non-goals
 
 - No accounts, no multi-user, no admin UI for editing the graph (it's code/config).
-- No mid-trip timestamp editing UI; no desktop "correction" workflows beyond
-  discard/anomalous toggles.
+- No mid-trip timestamp editing UI — corrections happen after the trip, in the
+  stats-page trip editor (§4). No path repair there either: the editor retimes
+  and deletes taps but never adds or re-keys checkpoints.
 - No native app, no push notifications, no background GPS tracking.
 
 ## 8. Parameters to expose in config

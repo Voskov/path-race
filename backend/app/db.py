@@ -146,6 +146,58 @@ def delete_last_tap(trip_id: str) -> str | None:
         return row["id"]
 
 
+class EditError(ValueError):
+    """Invalid desktop edit (unknown tap, empty path, unordered timestamps)."""
+
+
+def apply_trip_edits(trip_id: str, trip_fields: dict, tap_edits: list[dict],
+                     threshold_ms: int) -> None:
+    """Atomic commit of the stats-page trip editor: retime/delete taps and
+    update trip fields in one transaction. started_at/completed_at are
+    re-derived from the surviving taps, and ts_trusted is recomputed — so
+    fixing a rapid-double-tap's real time is also what restores its trust."""
+    with connect() as c:
+        rows = c.execute(
+            "SELECT id, client_ts FROM taps WHERE trip_id=? ORDER BY seq", (trip_id,)
+        ).fetchall()
+        taps = {r["id"]: {"id": r["id"], "client_ts": r["client_ts"], "delete": False}
+                for r in rows}
+        for e in tap_edits:
+            t = taps.get(e["id"])
+            if t is None:
+                raise EditError(f"tap {e['id']} does not belong to this trip")
+            if e.get("delete"):
+                t["delete"] = True
+            elif e.get("client_ts") is not None:
+                t["client_ts"] = e["client_ts"]
+        remaining = [taps[r["id"]] for r in rows if not taps[r["id"]]["delete"]]
+        if not remaining:
+            raise EditError("cannot delete every tap — discard the trip instead")
+        for prev, cur in zip(remaining, remaining[1:]):
+            if cur["client_ts"] < prev["client_ts"]:
+                raise EditError("timestamps must stay in path order (seq)")
+
+        for t in taps.values():
+            if t["delete"]:
+                c.execute("DELETE FROM taps WHERE id=?", (t["id"],))
+            else:
+                c.execute("UPDATE taps SET client_ts=? WHERE id=?",
+                          (t["client_ts"], t["id"]))
+
+        # every done-trip flow sets completed_at to the last tap's timestamp,
+        # so keep that invariant after the edit; started_at is the first tap
+        trip = c.execute("SELECT completed_at FROM trips WHERE id=?",
+                         (trip_id,)).fetchone()
+        sets = dict(trip_fields)
+        sets["started_at"] = remaining[0]["client_ts"]
+        if trip["completed_at"] is not None:
+            sets["completed_at"] = remaining[-1]["client_ts"]
+        cols = ",".join(f"{k}=?" for k in sets)
+        c.execute(f"UPDATE trips SET {cols} WHERE id=?", (*sets.values(), trip_id))
+
+        _recompute_trust(c, trip_id, threshold_ms)
+
+
 def _recompute_trust(conn, trip_id: str, threshold_ms: int) -> None:
     rows = conn.execute(
         "SELECT id, client_ts FROM taps WHERE trip_id=? ORDER BY seq", (trip_id,)
