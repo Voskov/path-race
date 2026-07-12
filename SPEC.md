@@ -24,9 +24,9 @@ Home-side boarding options (all reached by scooter from home):
 - **Pinsker** (R1, closest, most street-running stops before the tunnel)
 - **Kiryat Arye** (R3 terminus, deep station structure, board empty train)
 - **Shaham** (R1, last surface stop before the tunnel — max stop-skipping)
-- Reserve options (buttons exist, rarely used): **Kroll, Dankner, Beilinson** (R1)
+- Reserve options (buttons exist, rarely used): **Kroll, Dankner** (R1)
 
-R1 surface order toward the tunnel: Pinsker → Kroll → Dankner → Beilinson → Shaham → tunnel.
+R1 surface order toward the tunnel: Pinsker → Kroll → Dankner → Shaham → tunnel.
 
 Office-side options: exit at **Yehudit** (earlier exit, longer scoot, one big variable-wait
 intersection) or ride one more stop and exit at **Carlebach** (shorter scoot).
@@ -62,18 +62,15 @@ flowchart TD
     H --> SDC[shaham_doors_close]
     H -.-> KRDC[kroll_doors_close]
     H -.-> DDC[dankner_doors_close]
-    H -.-> BDC[beilinson_doors_close]
     KAE --> KAP[kiryat_arye_platform]
     KAP --> KDC[kiryat_arye_doors_close]
     PDC -.->|optional ride-through| SDC
     KRDC -.-> SDC
     DDC -.-> SDC
-    BDC -.-> SDC
     SDC --> YDO[yehudit_doors_open]
     PDC --> YDO
     KRDC -.-> YDO
     DDC -.-> YDO
-    BDC -.-> YDO
     KDC --> YDO
     YDO --> YG[yehudit_gate]
     YDO --> CDO[carlebach_doors_open]
@@ -109,7 +106,6 @@ flowchart TD
     YDC --> KDO[kiryat_arye_doors_open]
     YDC -.-> KRDO[kroll_doors_open]
     YDC -.-> DDO[dankner_doors_open]
-    YDC -.-> BDO[beilinson_doors_open]
     SDO -.->|stay on| PDO
     KDO --> KEX[kiryat_arye_exit]
     SDO --> H2[home]
@@ -117,7 +113,6 @@ flowchart TD
     KEX --> H2
     KRDO -.-> H2
     DDO -.-> H2
-    BDO -.-> H2
 ```
 
 The evening Carlebach branch requires a **ride-through tap** at "yehudit_doors_close" while

@@ -28,7 +28,6 @@ _C = {
     "pinsker":         (32.093731, 34.882202),  # (real)
     "kroll":           (32.091911, 34.877506),  # (real)
     "dankner":         (32.090950, 34.872166),  # (real)
-    "beilinson":       (32.091461, 34.866802),  # (real)
     "shaham":          (32.092670, 34.853252),  # (real, labelled "Shenkar" on maps)
     "kiryat_arye":     (32.105930, 34.861897),  # (real)
     "yehudit":         (32.070168, 34.788406),  # (real)
@@ -56,7 +55,7 @@ def _n(display, nxt, station=None, optional=False, hinge=None,
 MORNING = {
     "home": _n("Home", [
         "pinsker_platform", "kiryat_arye_entrance", "shaham_platform",
-        "kroll_platform", "dankner_platform", "beilinson_platform",
+        "kroll_platform", "dankner_platform",
     ], station="home"),
 
     # Surface platform arrivals — mandatory boundary between the scoot segment
@@ -67,7 +66,6 @@ MORNING = {
     "shaham_platform":    _n("Shaham · platform",    ["shaham_doors_close"],    station="shaham"),
     "kroll_platform":     _n("Kroll · platform",     ["kroll_doors_close"],     station="kroll",     optional=True),
     "dankner_platform":   _n("Dankner · platform",   ["dankner_doors_close"],   station="dankner",   optional=True),
-    "beilinson_platform": _n("Beilinson · platform", ["beilinson_doors_close"], station="beilinson", optional=True),
 
     # R1 boardings — the boarding tap is doors_close, reached via the platform
     # node. Each may optionally ride through Shaham (direct edge, no platform),
@@ -75,7 +73,6 @@ MORNING = {
     "pinsker_doors_close":   _n("Pinsker · doors close",   ["shaham_doors_close", "yehudit_doors_open"], station="pinsker", boarding=True),
     "kroll_doors_close":     _n("Kroll · doors close",     ["shaham_doors_close", "yehudit_doors_open"], station="kroll",     boarding=True, optional=True),
     "dankner_doors_close":   _n("Dankner · doors close",   ["shaham_doors_close", "yehudit_doors_open"], station="dankner",   boarding=True, optional=True),
-    "beilinson_doors_close": _n("Beilinson · doors close", ["shaham_doors_close", "yehudit_doors_open"], station="beilinson", boarding=True, optional=True),
 
     # Shaham: last surface stop before the tunnel. Primary boarding AND the
     # secondary hinge shared by the whole R1 family.
@@ -117,7 +114,7 @@ EVENING = {
     # Main hinge — every evening trip passes it.
     "yehudit_doors_close": _n("Yehudit · doors close", [
         "shaham_doors_open", "pinsker_doors_open", "kiryat_arye_doors_open",
-        "kroll_doors_open", "dankner_doors_open", "beilinson_doors_open",
+        "kroll_doors_open", "dankner_doors_open",
     ], station="yehudit", hinge="main"),
 
     # Secondary hinge (ride-through / R1 alighting family).
@@ -126,7 +123,6 @@ EVENING = {
     "pinsker_doors_open":   _n("Pinsker · doors open",   ["home"], station="pinsker",   boarding=True),
     "kroll_doors_open":     _n("Kroll · doors open",     ["home"], station="kroll",     boarding=True, optional=True),
     "dankner_doors_open":   _n("Dankner · doors open",   ["home"], station="dankner",   boarding=True, optional=True),
-    "beilinson_doors_open": _n("Beilinson · doors open", ["home"], station="beilinson", boarding=True, optional=True),
 
     "kiryat_arye_doors_open": _n("Kiryat Arye · doors open", ["kiryat_arye_exit"], station="kiryat_arye", boarding=True),
     "kiryat_arye_exit":       _n("Kiryat Arye · exit",       ["home"],             station="kiryat_arye"),
