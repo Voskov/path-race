@@ -32,8 +32,6 @@ _C = {
     "kiryat_arye":     (32.105930, 34.861897),  # (real)
     "yehudit":         (32.070168, 34.788406),  # (real)
     "carlebach":       (32.065273, 34.782825),  # (real)
-    "street_morning":  (32.0620, 34.7880),   # (est)
-    "street_evening":  (32.0600, 34.7900),   # (est)
 }
 
 
@@ -84,26 +82,25 @@ MORNING = {
     "kiryat_arye_doors_close": _n("Kiryat Arye · doors close", ["yehudit_doors_open"],      station="kiryat_arye", boarding=True),
 
     # Main hinge — every morning trip passes it.
-    "yehudit_doors_open": _n("Yehudit · doors open", ["yehudit_gate", "carlebach_doors_open"], station="yehudit", hinge="main"),
+    "yehudit_doors_open": _n("Yehudit · doors open", ["yehudit_exit", "carlebach_doors_open"], station="yehudit", hinge="main"),
 
-    # Office-station choice.
-    "yehudit_gate":         _n("Yehudit · exit gate",  ["street_morning"], station="yehudit",   office="yehudit"),
-    "carlebach_doors_open": _n("Carlebach · doors open", ["carlebach_gate"], station="carlebach", office="carlebach"),
-    "carlebach_gate":       _n("Carlebach · exit gate", ["street_morning"], station="carlebach", office="carlebach"),
+    # Office-station choice. The station exit (onto the street) is where the
+    # scoot leg begins; it carries the office-station verdict marker.
+    "yehudit_exit":         _n("Yehudit · Exit",       ["office"],          station="yehudit",   office="yehudit"),
+    "carlebach_doors_open": _n("Carlebach · doors open", ["carlebach_exit"], station="carlebach", office="carlebach"),
+    "carlebach_exit":       _n("Carlebach · Exit",     ["office"],          station="carlebach", office="carlebach"),
 
-    "street_morning": _n("Street (scoot to office)", ["office"], station="street_morning"),
     "office":         _n("Office", [], station="office"),  # terminal
 }
 
 
 EVENING = {
-    "office": _n("Office", ["street_evening"], station="office"),
+    # Office-station choice (reverse). The station entrance (off the street) is
+    # where the scoot leg ends; it carries the office-station verdict marker.
+    "office": _n("Office", ["yehudit_entrance", "carlebach_entrance"], station="office"),
 
-    "street_evening": _n("Street (scoot to station)", ["yehudit_gate_in", "carlebach_gate_in"], station="street_evening"),
-
-    # Office-station choice (reverse).
-    "yehudit_gate_in":   _n("Yehudit · entrance gate",   ["yehudit_platform"],   station="yehudit",   office="yehudit"),
-    "carlebach_gate_in": _n("Carlebach · entrance gate", ["carlebach_platform"], station="carlebach", office="carlebach"),
+    "yehudit_entrance":   _n("Yehudit · Entrance",   ["yehudit_platform"],   station="yehudit",   office="yehudit"),
+    "carlebach_entrance": _n("Carlebach · Entrance", ["carlebach_platform"], station="carlebach", office="carlebach"),
 
     "yehudit_platform":   _n("Yehudit · platform",   ["yehudit_doors_close"],   station="yehudit"),
     "carlebach_platform": _n("Carlebach · platform", ["carlebach_doors_close"], station="carlebach"),

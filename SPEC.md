@@ -72,12 +72,11 @@ flowchart TD
     KRDC -.-> YDO
     DDC -.-> YDO
     KDC --> YDO
-    YDO --> YG[yehudit_gate]
+    YDO --> YEX[yehudit_exit]
     YDO --> CDO[carlebach_doors_open]
-    YG --> ST_M[street_morning]
-    CDO --> CG[carlebach_gate]
-    CG --> ST_M
-    ST_M --> OF[office]
+    YEX --> OF[office]
+    CDO --> CEX[carlebach_exit]
+    CEX --> OF[office]
 ```
 
 Note: from a node like pinsker_doors_close the next valid taps are BOTH
@@ -93,11 +92,10 @@ Kiryat Arye has internal structure worth diagnosing: entrance → platform → d
 
 ```mermaid
 flowchart TD
-    OF[office] --> ST_E[street_evening]
-    ST_E --> YG2[yehudit_gate_in]
-    ST_E --> CG2[carlebach_gate_in]
-    YG2 --> YP[yehudit_platform]
-    CG2 --> CP[carlebach_platform]
+    OF[office] --> YEN[yehudit_entrance]
+    OF[office] --> CEN[carlebach_entrance]
+    YEN --> YP[yehudit_platform]
+    CEN --> CP[carlebach_platform]
     CP --> CDC[carlebach_doors_close]
     YP --> YDC[yehudit_doors_close]
     CDC -->|ride-through tap| YDC
