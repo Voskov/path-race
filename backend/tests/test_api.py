@@ -93,7 +93,7 @@ def test_terminal_autocompletes():
     seq = 1
     ts = 1_000_000
     for key in ["pinsker_platform", "pinsker_doors_close", "yehudit_doors_open",
-                "yehudit_gate", "street_morning", "office"]:
+                "yehudit_exit", "office"]:
         ts += 60_000
         client.post(API(f"/trips/{trip_id}/taps"),
                     json={"taps": [_tap(key, ts, seq)]})
@@ -137,7 +137,7 @@ def test_stats_bracket_and_inference():
     # full valid trip, bracket counts, home->doors_close stays an unsplit segment
     trip_id, first, _ = start_morning(1_000_000)
     plan = [("pinsker_doors_close", 1_060_000), ("yehudit_doors_open", 1_600_000),
-            ("yehudit_gate", 1_660_000), ("street_morning", 1_720_000),
+            ("yehudit_exit", 1_720_000),
             ("office", 1_900_000)]
     seq = 1
     for key, ts in plan:
@@ -165,8 +165,7 @@ def test_stats_scoot_wait_ride_split():
     plan = [("pinsker_platform", 1_300_000),      # scoot 300s
             ("pinsker_doors_close", 1_420_000),   # wait 120s
             ("yehudit_doors_open", 1_900_000),    # ride 480s
-            ("yehudit_gate", 1_960_000),
-            ("street_morning", 2_020_000),
+            ("yehudit_exit", 2_020_000),
             ("office", 2_200_000)]
     seq = 1
     for key, ts in plan:
@@ -187,12 +186,12 @@ def test_stats_excludes_untrusted_bracket():
     # make yehudit_doors_open untrusted by tapping office-side hinge <3s later
     plan = [("pinsker_doors_close", 1_060_000),
             ("yehudit_doors_open", 1_600_000),
-            ("yehudit_gate", 1_602_000)]  # 2s -> yehudit_doors_open untrusted
+            ("yehudit_exit", 1_602_000)]  # 2s -> yehudit_doors_open untrusted
     seq = 1
     for key, ts in plan:
         client.post(API(f"/trips/{trip_id}/taps"), json={"taps": [_tap(key, ts, seq)]})
         seq += 1
-    for key, ts in [("street_morning", 1_720_000), ("office", 1_900_000)]:
+    for key, ts in [("office", 1_900_000)]:
         client.post(API(f"/trips/{trip_id}/taps"), json={"taps": [_tap(key, ts, seq)]}); seq += 1
     s = client.get(API("/stats")).json()
     boarding = s["panels"]["boarding"]["morning"]["options"]
@@ -207,7 +206,7 @@ def test_end_elsewhere_partial_trip():
     first = _tap("office", 1_000_000, 0)
     r = client.post(API("/trips"), json={"id": trip_id, "first_tap": first})
     assert r.status_code == 200, r.text
-    plan = [("street_evening", 1_060_000), ("yehudit_gate_in", 1_240_000),
+    plan = [("yehudit_entrance", 1_240_000),
             ("yehudit_platform", 1_300_000), ("yehudit_doors_close", 1_420_000)]
     seq = 1
     for key, ts in plan:
@@ -237,7 +236,7 @@ def test_full_trip_not_partial():
     trip_id, first, _ = start_morning()
     seq, ts = 1, 1_000_000
     for key in ["pinsker_platform", "pinsker_doors_close", "yehudit_doors_open",
-                "yehudit_gate", "street_morning", "office"]:
+                "yehudit_exit", "office"]:
         ts += 60_000
         client.post(API(f"/trips/{trip_id}/taps"), json={"taps": [_tap(key, ts, seq)]})
         seq += 1
@@ -253,7 +252,7 @@ def _done_trip(t0=1_000_000):
     trip_id, first, _ = start_morning(t0)
     seq, ts = 1, t0
     for key in ["pinsker_platform", "pinsker_doors_close", "yehudit_doors_open",
-                "yehudit_gate", "street_morning", "office"]:
+                "yehudit_exit", "office"]:
         ts += 60_000
         client.post(API(f"/trips/{trip_id}/taps"), json={"taps": [_tap(key, ts, seq)]})
         seq += 1
@@ -311,9 +310,9 @@ def test_edit_restores_trust():
 def test_edit_deletes_tap():
     trip_id, taps = _done_trip()
     r = client.post(API(f"/trips/{trip_id}/edit"),
-                    json={"taps": [{"id": taps["yehudit_gate"]["id"], "delete": True}]})
+                    json={"taps": [{"id": taps["yehudit_exit"]["id"], "delete": True}]})
     keys = [t["checkpoint_key"] for t in r.json()["taps"]]
-    assert "yehudit_gate" not in keys and len(keys) == 6
+    assert "yehudit_exit" not in keys and len(keys) == 5
 
 
 def test_edit_metadata_and_reason_clear():
@@ -349,10 +348,10 @@ def test_edit_rejects_out_of_order_timestamps():
     trip_id, taps = _done_trip(1_000_000)
     before = {t["checkpoint_key"]: t["client_ts"]
               for t in client.get(API(f"/trips/{trip_id}")).json()["taps"]}
-    # push yehudit_doors_open past the gate tap that follows it
+    # push yehudit_doors_open past the exit tap that follows it
     r = client.post(API(f"/trips/{trip_id}/edit"), json={"taps": [
         {"id": taps["yehudit_doors_open"]["id"],
-         "client_ts": taps["yehudit_gate"]["client_ts"] + 1},
+         "client_ts": taps["yehudit_exit"]["client_ts"] + 1},
     ]})
     assert r.status_code == 400
     # rejected atomically — nothing changed
@@ -402,7 +401,7 @@ def test_export_csv_row_per_tap():
     import io as _io
     rows = list(_csv.DictReader(_io.StringIO(r.text)))
     mine = [row for row in rows if row["trip_id"] == trip_id]
-    assert len(mine) == 7  # home + 6 taps, one row each
+    assert len(mine) == 6  # home + 5 taps, one row each
     assert mine[0]["checkpoint_key"] == "home"
     assert mine[0]["direction"] == "morning"
     assert mine[0]["client_ts"] == "1000000"
@@ -414,3 +413,94 @@ def test_trip_log_and_discard_toggle():
     log = client.get(API("/trips")).json()["trips"]
     row = next(t for t in log if t["id"] == trip_id)
     assert row["status"] == "discarded"
+
+
+# ---- gate/street migration --------------------------------------------------
+
+from app import migrate
+
+
+def _raw_trip(direction, plan, t0=1_000_000):
+    """Insert an old-shape trip straight into the DB (bypassing the graph),
+    then return its id. plan is [(checkpoint_key, client_ts), ...]."""
+    trip_id = str(uuid.uuid4())
+    with db.connect() as c:
+        c.execute(
+            "INSERT INTO trips (id, direction, started_at, completed_at, status, crowding)"
+            " VALUES (?,?,?,?,'done',2)",
+            (trip_id, direction, plan[0][1], plan[-1][1]),
+        )
+        for seq, (key, ts) in enumerate(plan):
+            c.execute(
+                "INSERT INTO taps (id, trip_id, checkpoint_key, client_ts, seq, received_at)"
+                " VALUES (?,?,?,?,?,0)",
+                (str(uuid.uuid4()), trip_id, key, ts, seq),
+            )
+    return trip_id
+
+
+def _keys(trip_id):
+    return [t["checkpoint_key"] for t in db.get_taps(trip_id)]
+
+
+def test_migration_morning_yehudit_rekeys_and_preserves_verdict():
+    tid = _raw_trip("morning", [
+        ("home", 1_000_000), ("pinsker_doors_close", 1_060_000),
+        ("yehudit_doors_open", 1_600_000), ("yehudit_gate", 1_660_000),
+        ("street_morning", 1_720_000), ("office", 1_900_000)])
+    migrate.run_all()
+
+    keys = _keys(tid)
+    assert "yehudit_gate" not in keys and "street_morning" not in keys
+    assert "yehudit_exit" in keys
+    # street timestamp is the one that survives as the Exit
+    exit_ts = next(t["client_ts"] for t in db.get_taps(tid)
+                   if t["checkpoint_key"] == "yehudit_exit")
+    assert exit_ts == 1_720_000
+    # seq stays contiguous after the gate deletion
+    assert [t["seq"] for t in db.get_taps(tid)] == [0, 1, 2, 3, 4]
+    # office-station verdict still resolves to yehudit; bracket total intact
+    s = client.get(API("/stats")).json()
+    assert s["panels"]["office"]["morning"]["options"]["yehudit"]["mean_ms"] == 300_000
+
+
+def test_migration_evening_carlebach_infers_station():
+    tid = _raw_trip("evening", [
+        ("office", 1_000_000), ("street_evening", 1_060_000),
+        ("carlebach_gate_in", 1_120_000), ("carlebach_platform", 1_180_000),
+        ("carlebach_doors_close", 1_300_000), ("yehudit_doors_close", 1_500_000),
+        ("pinsker_doors_open", 1_900_000), ("home", 2_400_000)])
+    migrate.run_all()
+
+    keys = _keys(tid)
+    assert "carlebach_gate_in" not in keys and "street_evening" not in keys
+    assert "carlebach_entrance" in keys  # inferred Carlebach from the branch
+    s = client.get(API("/stats")).json()
+    # office bracket office->yehudit_doors_close = 500_000, still attributed to carlebach
+    assert s["panels"]["office"]["evening"]["options"]["carlebach"]["mean_ms"] == 500_000
+
+
+def test_migration_promotes_gate_when_no_street_tap():
+    # a trip where only the gate was tapped (no street) must keep its marker
+    tid = _raw_trip("morning", [
+        ("home", 1_000_000), ("pinsker_doors_close", 1_060_000),
+        ("yehudit_doors_open", 1_600_000), ("yehudit_gate", 1_660_000),
+        ("office", 1_900_000)])
+    migrate.run_all()
+
+    keys = _keys(tid)
+    assert "yehudit_gate" not in keys
+    assert "yehudit_exit" in keys  # gate promoted, not dropped
+    assert next(t["client_ts"] for t in db.get_taps(tid)
+                if t["checkpoint_key"] == "yehudit_exit") == 1_660_000
+
+
+def test_migration_is_idempotent():
+    tid = _raw_trip("morning", [
+        ("home", 1_000_000), ("yehudit_doors_open", 1_600_000),
+        ("yehudit_gate", 1_660_000), ("street_morning", 1_720_000),
+        ("office", 1_900_000)])
+    migrate.run_all()
+    first = _keys(tid)
+    migrate.run_all()  # re-run: nothing left matching the old keys
+    assert _keys(tid) == first

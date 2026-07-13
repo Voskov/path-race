@@ -7,7 +7,7 @@ from fastapi import APIRouter, FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from . import db, export, graph, stats
+from . import db, export, graph, migrate, stats
 from .config import settings
 from .schemas import CreateTripIn, PatchTripIn, TapsBatchIn, TripEditIn
 
@@ -17,6 +17,7 @@ STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     db.init_db()
+    migrate.run_all()
     yield
 
 
