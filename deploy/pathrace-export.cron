@@ -1,0 +1,14 @@
+# Path Race → Google Drive snapshot, twice a day at 01:00 and 13:00.
+#
+# Times are in the cron daemon's timezone. If the host isn't already on
+# Asia/Jerusalem, pin it for this job by keeping the CRON_TZ line below.
+#
+# Install (as the user whose rclone config was set up — see DRIVE-EXPORT.md):
+#   crontab -l 2>/dev/null | cat - deploy/pathrace-export.cron | crontab -
+# or copy the file into /etc/cron.d/ (add a user field: `<min> <hr> * * * <user> ...`).
+#
+# Log lands in /var/log/pathrace-export.log — rotate/trim as you like.
+
+CRON_TZ=Asia/Jerusalem
+
+0 1,13 * * *  /opt/path-race/deploy/pathrace-export.sh >> /var/log/pathrace-export.log 2>&1

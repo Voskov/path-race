@@ -41,13 +41,19 @@ def _all_rows() -> tuple[list[dict], list[dict]]:
     return trips, taps
 
 
-def bundle() -> dict:
-    """Nested JSON snapshot: every trip with its taps. Nothing filtered."""
+def bundle(include_location: bool = True) -> dict:
+    """Nested JSON snapshot: every trip with its taps. Nothing filtered.
+
+    Pass include_location=False to drop the raw GPS fields (lat/lng/accuracy) —
+    handy when the snapshot leaves the box (e.g. synced to Drive)."""
     trips, taps = _all_rows()
     by_trip: dict[str, list] = {}
     for t in taps:
         t["ts_trusted"] = bool(t["ts_trusted"])
         t["client_ts_local"] = _iso_local(t["client_ts"])
+        if not include_location:
+            for k in ("lat", "lng", "accuracy"):
+                t.pop(k, None)
         by_trip.setdefault(t["trip_id"], []).append(t)
     for tr in trips:
         tr["anomalous"] = bool(tr["anomalous"])
@@ -63,12 +69,16 @@ def bundle() -> dict:
     }
 
 
-def csv_text() -> str:
-    """Flat CSV, one row per tap with the parent trip's fields on each row."""
+def csv_text(include_location: bool = True) -> str:
+    """Flat CSV, one row per tap with the parent trip's fields on each row.
+
+    include_location=False drops the lat/lng/accuracy columns entirely."""
     trips, taps = _all_rows()
     trip_by_id = {t["id"]: t for t in trips}
+    cols = (CSV_COLUMNS if include_location
+            else [c for c in CSV_COLUMNS if c not in ("lat", "lng", "accuracy")])
     buf = io.StringIO()
-    w = csv.DictWriter(buf, fieldnames=CSV_COLUMNS, extrasaction="ignore")
+    w = csv.DictWriter(buf, fieldnames=cols, extrasaction="ignore")
     w.writeheader()
     for tp in taps:
         tr = trip_by_id.get(tp["trip_id"], {})
@@ -98,3 +108,34 @@ def csv_text() -> str:
 def filename(ext: str) -> str:
     stamp = datetime.now(TZ).strftime("%Y%m%d-%H%M%S")
     return f"pathrace-export-{stamp}.{ext}"
+
+
+def main(argv=None) -> None:
+    """Dump the whole DB to stdout — the offline-sync entry point.
+
+        python -m app.export csv   > snapshot.csv
+        python -m app.export json  > snapshot.json
+
+    Used by deploy/pathrace-export.sh so a cron job can pipe a snapshot to
+    Drive without going through the (secret-prefixed) HTTP endpoint."""
+    import argparse
+    import json
+    import sys
+
+    p = argparse.ArgumentParser(prog="app.export", description=main.__doc__)
+    p.add_argument("format", choices=("csv", "json"))
+    p.add_argument("--strip-location", action="store_true",
+                   help="omit the raw GPS fields (lat/lng/accuracy)")
+    args = p.parse_args(argv)
+
+    include = not args.strip_location
+    if args.format == "csv":
+        sys.stdout.write(csv_text(include_location=include))
+    else:
+        json.dump(bundle(include_location=include), sys.stdout,
+                  ensure_ascii=False, indent=2)
+        sys.stdout.write("\n")
+
+
+if __name__ == "__main__":
+    main()
